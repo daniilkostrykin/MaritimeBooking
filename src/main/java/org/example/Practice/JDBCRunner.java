@@ -6,10 +6,10 @@ public class JDBCRunner {
 
     private static final String PROTOCOL = "jdbc:postgresql://";
     private static final String DRIVER = "org.postgresql.Driver";
-    private static final String URL_LOCALE_NAME = "localhost/";
-    private static final String DATABASE_NAME = "maritime_booking";
-    public static final String USER_NAME = "postgres";
-    public static final String DATABASE_PASS = "postgres";
+    private static final String URL_LOCALE_NAME = "localhost:5433/";
+    private static final String DATABASE_NAME = "sea_cruises";
+    public static final String USER_NAME = "daniil";
+    public static final String DATABASE_PASS = "daniil";
     public static final String DATABASE_URL = PROTOCOL + URL_LOCALE_NAME + DATABASE_NAME;
 
     public JDBCRunner() {
@@ -29,7 +29,8 @@ public class JDBCRunner {
         try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
             // Проверка подключения
         } catch (SQLException e) {
-            throw new RuntimeException("Нет базы данных! Проверьте имя базы или разверните локально резервную копию.", e);
+            throw new RuntimeException("Нет базы данных! Проверьте имя базы или разверните локально резервную копию.",
+                    e);
         }
     }
 
@@ -44,8 +45,8 @@ public class JDBCRunner {
     }
 
     public void buyTicket(Connection connection, String email, int voyageId, String vesselId, int cabinId,
-                          double price, String paymentMethod, String mealType, boolean insurance,
-                          double luggageWeight, String purchaseDate) throws SQLException {
+            double price, String paymentMethod, String mealType, boolean insurance,
+            double luggageWeight, String purchaseDate) throws SQLException {
         if (email == null || email.isBlank() || voyageId <= 0 || vesselId == null || vesselId.isBlank() ||
                 cabinId <= 0 || price <= 0 || paymentMethod == null || mealType == null || purchaseDate == null) {
             throw new SQLException("Invalid input parameters.");
@@ -81,7 +82,8 @@ public class JDBCRunner {
         }
 
         // Вставка билета
-        String insertTicketSql = "INSERT INTO maritime_booking.tickets (email, voyage_id, vessel_id, cabin_id, price, " +
+        String insertTicketSql = "INSERT INTO maritime_booking.tickets (email, voyage_id, vessel_id, cabin_id, price, "
+                +
                 "payment_method, meal_type, insurance, luggage_weight, purchase_date) " +
                 "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id";
         PreparedStatement insertStmt = connection.prepareStatement(insertTicketSql);
@@ -108,17 +110,17 @@ public class JDBCRunner {
     }
 
     public void addClient(Connection connection, String lastName, String firstName, String middleName,
-                          long passportSeries, String birthDate, String email) throws SQLException {
+            long passportSeries, String birthDate, String email) throws SQLException {
         if (lastName == null || lastName.isBlank() || firstName == null || firstName.isBlank() ||
                 passportSeries <= 0 || birthDate == null || birthDate.isBlank() || email == null || email.isBlank()) {
             throw new SQLException("Invalid input parameters.");
         }
 
         PreparedStatement statement = connection.prepareStatement(
-                "INSERT INTO maritime_booking.customers (email, last_name, first_name, middle_name, birth_date, passport_series) " +
+                "INSERT INTO maritime_booking.customers (email, last_name, first_name, middle_name, birth_date, passport_series) "
+                        +
                         "VALUES (?, ?, ?, ?, ?, ?) RETURNING email",
-                Statement.RETURN_GENERATED_KEYS
-        );
+                Statement.RETURN_GENERATED_KEYS);
         statement.setString(1, email);
         statement.setString(2, lastName);
         statement.setString(3, firstName);

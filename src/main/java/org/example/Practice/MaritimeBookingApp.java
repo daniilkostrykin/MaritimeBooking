@@ -17,9 +17,13 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 
 public class MaritimeBookingApp extends Application {
-    private static final String DATABASE_URL = "jdbc:postgresql://localhost/sea_cruises";
-    private static final String USER_NAME = "postgres";
-    private static final String DATABASE_PASS = "postgres";
+    private static final String PROTOCOL = "jdbc:postgresql://";
+    private static final String DRIVER = "org.postgresql.Driver";
+    private static final String URL_LOCALE_NAME = "localhost:5433/";
+    private static final String DATABASE_NAME = "sea_cruises";
+    public static final String USER_NAME = "daniil";
+    public static final String DATABASE_PASS = "daniil";
+    public static final String DATABASE_URL = PROTOCOL + URL_LOCALE_NAME + DATABASE_NAME;
 
     private JDBCRunner jdbcRunner;
 
@@ -78,6 +82,7 @@ public class MaritimeBookingApp extends Application {
 
         showTicketsBtn.setOnAction(e -> {
             try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
+                System.out.println("Connecting to: " + DATABASE_URL + " as " + USER_NAME);
                 StringBuilder tickets = new StringBuilder();
                 var rs = jdbcRunner.getTicketsData(connection);
                 while (rs.next()) {
@@ -157,6 +162,7 @@ public class MaritimeBookingApp extends Application {
 
         buyTicketBtn.setOnAction(e -> {
             try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
+                System.out.println("Connecting to: " + DATABASE_URL + " as " + USER_NAME);
                 jdbcRunner.buyTicket(connection,
                         emailField.getText(),
                         Integer.parseInt(voyageIdField.getText()),
@@ -195,6 +201,7 @@ public class MaritimeBookingApp extends Application {
 
         showClientsBtn.setOnAction(e -> {
             try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
+                System.out.println("Connecting to: " + DATABASE_URL + " as " + USER_NAME);
                 StringBuilder clients = new StringBuilder();
                 var rs = jdbcRunner.getClientsData(connection);
                 while (rs.next()) {
@@ -256,6 +263,7 @@ public class MaritimeBookingApp extends Application {
 
         addClientBtn.setOnAction(e -> {
             try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
+                System.out.println("Connecting to: " + DATABASE_URL + " as " + USER_NAME);
                 jdbcRunner.addClient(connection,
                         lastNameField.getText(),
                         firstNameField.getText(),
