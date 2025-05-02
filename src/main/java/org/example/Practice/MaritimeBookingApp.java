@@ -15,6 +15,16 @@ import javafx.scene.control.TextField;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
+import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableView;
+import javafx.scene.control.cell.PropertyValueFactory;
+import javafx.geometry.Pos;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.VBox;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 
 public class MaritimeBookingApp extends Application {
     private static final String PROTOCOL = "jdbc:postgresql://";
@@ -67,102 +77,144 @@ public class MaritimeBookingApp extends Application {
         primaryStage.show();
     }
 
-    private GridPane createTicketsTab() {
-        GridPane grid = new GridPane();
-        grid.setPadding(new Insets(10));
-        grid.setVgap(10);
-        grid.setHgap(10);
+    private VBox createTicketsTab() {
+        VBox vbox = new VBox(15);
+        vbox.setPadding(new Insets(20));
 
-        TextArea outputArea = new TextArea();
-        outputArea.setEditable(false);
-        GridPane.setConstraints(outputArea, 0, 0, 2, 1);
+        TableView<Ticket> table = new TableView<>();
+        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        table.setPrefHeight(400);
+
+        TableColumn<Ticket, Integer> idCol = new TableColumn<>("ID");
+        idCol.setCellValueFactory(new PropertyValueFactory<>("id"));
+        TableColumn<Ticket, String> emailCol = new TableColumn<>("Email");
+        emailCol.setCellValueFactory(new PropertyValueFactory<>("email"));
+        TableColumn<Ticket, Double> priceCol = new TableColumn<>("Price");
+        priceCol.setCellValueFactory(new PropertyValueFactory<>("price"));
+        TableColumn<Ticket, Integer> voyageCol = new TableColumn<>("Voyage ID");
+        voyageCol.setCellValueFactory(new PropertyValueFactory<>("voyageId"));
+        table.getColumns().addAll(idCol, emailCol, priceCol, voyageCol);
 
         Button showTicketsBtn = new Button("Show Tickets");
-        GridPane.setConstraints(showTicketsBtn, 0, 1);
-
+        showTicketsBtn.setStyle("-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white;");
         showTicketsBtn.setOnAction(e -> {
+            ObservableList<Ticket> data = FXCollections.observableArrayList();
             try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
-                System.out.println("Connecting to: " + DATABASE_URL + " as " + USER_NAME);
-                StringBuilder tickets = new StringBuilder();
                 var rs = jdbcRunner.getTicketsData(connection);
                 while (rs.next()) {
-                    tickets.append("ID: ").append(rs.getInt("id"))
-                            .append(", Email: ").append(rs.getString("email"))
-                            .append(", Price: ").append(rs.getDouble("price"))
-                            .append(", Voyage ID: ").append(rs.getInt("voyage_id"))
-                            .append("\n");
+                    data.add(new Ticket(
+                            rs.getInt("id"),
+                            rs.getString("email"),
+                            rs.getDouble("price"),
+                            rs.getInt("voyage_id")));
                 }
-                outputArea.setText(tickets.toString());
+                table.setItems(data);
             } catch (SQLException ex) {
-                outputArea.setText("Error: " + ex.getMessage());
+                showAlert(Alert.AlertType.ERROR, "Error", "Failed to load tickets: " + ex.getMessage());
             }
         });
-
-        grid.getChildren().addAll(outputArea, showTicketsBtn);
-        return grid;
+        vbox.getChildren().addAll(table, showTicketsBtn);
+        return vbox;
     }
 
-    private GridPane createBuyTicketTab() {
-        GridPane grid = new GridPane();
-        grid.setPadding(new Insets(10));
-        grid.setVgap(10);
-        grid.setHgap(10);
+    private VBox createBuyTicketTab() {
+        VBox vbox = new VBox(20);
+        vbox.setPadding(new Insets(30));
+        vbox.setAlignment(Pos.CENTER);
+
+        Label title = new Label("Buy Ticket");
+        title.setStyle("-fx-font-size: 20px; -fx-font-weight: bold;");
 
         TextField emailField = new TextField();
         emailField.setPromptText("Email");
-        GridPane.setConstraints(emailField, 1, 0);
-
         TextField voyageIdField = new TextField();
         voyageIdField.setPromptText("Voyage ID");
-        GridPane.setConstraints(voyageIdField, 1, 1);
-
         TextField vesselIdField = new TextField();
         vesselIdField.setPromptText("Vessel ID");
-        GridPane.setConstraints(vesselIdField, 1, 2);
-
         TextField cabinIdField = new TextField();
         cabinIdField.setPromptText("Cabin ID");
-        GridPane.setConstraints(cabinIdField, 1, 3);
-
         TextField priceField = new TextField();
         priceField.setPromptText("Price");
-        GridPane.setConstraints(priceField, 1, 4);
-
         TextField paymentMethodField = new TextField();
         paymentMethodField.setPromptText("Payment Method");
-        GridPane.setConstraints(paymentMethodField, 1, 5);
-
         TextField mealTypeField = new TextField();
         mealTypeField.setPromptText("Meal Type");
-        GridPane.setConstraints(mealTypeField, 1, 6);
-
         CheckBox insuranceCheck = new CheckBox("Insurance");
-        GridPane.setConstraints(insuranceCheck, 1, 7);
-
         TextField luggageField = new TextField();
         luggageField.setPromptText("Luggage Weight");
-        GridPane.setConstraints(luggageField, 1, 8);
-
         TextField purchaseDateField = new TextField();
         purchaseDateField.setPromptText("Purchase Date (YYYY-MM-DD)");
-        GridPane.setConstraints(purchaseDateField, 1, 9);
+
+        Label errorLabel = new Label("");
+        errorLabel.setStyle("-fx-text-fill: red; -fx-font-size: 12px;");
 
         Button buyTicketBtn = new Button("Buy Ticket");
-        GridPane.setConstraints(buyTicketBtn, 1, 10);
-
-        Label[] labels = new Label[] {
-                new Label("Email:"), new Label("Voyage ID:"), new Label("Vessel ID:"),
-                new Label("Cabin ID:"), new Label("Price:"), new Label("Payment Method:"),
-                new Label("Meal Type:"), new Label("Insurance:"), new Label("Luggage Weight:"),
-                new Label("Purchase Date:")
-        };
-        for (int i = 0; i < labels.length; i++) {
-            GridPane.setConstraints(labels[i], 0, i);
-        }
+        buyTicketBtn.setStyle(
+                "-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white; -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
 
         buyTicketBtn.setOnAction(e -> {
+            errorLabel.setText("");
+            boolean valid = true;
+            StringBuilder errors = new StringBuilder();
+            if (emailField.getText().isBlank()) {
+                valid = false;
+                errors.append("Email required. ");
+                emailField.setStyle("-fx-border-color: red;");
+            } else
+                emailField.setStyle("");
+            if (voyageIdField.getText().isBlank() || !voyageIdField.getText().matches("\\d+")) {
+                valid = false;
+                errors.append("Voyage ID must be a number. ");
+                voyageIdField.setStyle("-fx-border-color: red;");
+            } else
+                voyageIdField.setStyle("");
+            if (vesselIdField.getText().isBlank()) {
+                valid = false;
+                errors.append("Vessel ID required. ");
+                vesselIdField.setStyle("-fx-border-color: red;");
+            } else
+                vesselIdField.setStyle("");
+            if (cabinIdField.getText().isBlank() || !cabinIdField.getText().matches("\\d+")) {
+                valid = false;
+                errors.append("Cabin ID must be a number. ");
+                cabinIdField.setStyle("-fx-border-color: red;");
+            } else
+                cabinIdField.setStyle("");
+            if (priceField.getText().isBlank() || !priceField.getText().matches("\\d+(\\.\\d+)?")) {
+                valid = false;
+                errors.append("Price must be a number. ");
+                priceField.setStyle("-fx-border-color: red;");
+            } else
+                priceField.setStyle("");
+            if (paymentMethodField.getText().isBlank()) {
+                valid = false;
+                errors.append("Payment method required. ");
+                paymentMethodField.setStyle("-fx-border-color: red;");
+            } else
+                paymentMethodField.setStyle("");
+            if (mealTypeField.getText().isBlank()) {
+                valid = false;
+                errors.append("Meal type required. ");
+                mealTypeField.setStyle("-fx-border-color: red;");
+            } else
+                mealTypeField.setStyle("");
+            if (luggageField.getText().isBlank() || !luggageField.getText().matches("\\d+(\\.\\d+)?")) {
+                valid = false;
+                errors.append("Luggage must be a number. ");
+                luggageField.setStyle("-fx-border-color: red;");
+            } else
+                luggageField.setStyle("");
+            if (purchaseDateField.getText().isBlank() || !purchaseDateField.getText().matches("\\d{4}-\\d{2}-\\d{2}")) {
+                valid = false;
+                errors.append("Date must be YYYY-MM-DD. ");
+                purchaseDateField.setStyle("-fx-border-color: red;");
+            } else
+                purchaseDateField.setStyle("");
+            if (!valid) {
+                errorLabel.setText(errors.toString());
+                return;
+            }
             try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
-                System.out.println("Connecting to: " + DATABASE_URL + " as " + USER_NAME);
                 jdbcRunner.buyTicket(connection,
                         emailField.getText(),
                         Integer.parseInt(voyageIdField.getText()),
@@ -175,95 +227,135 @@ public class MaritimeBookingApp extends Application {
                         Double.parseDouble(luggageField.getText()),
                         purchaseDateField.getText());
                 showAlert(Alert.AlertType.INFORMATION, "Success", "Ticket purchased successfully!");
-            } catch (SQLException | NumberFormatException ex) {
-                showAlert(Alert.AlertType.ERROR, "Error", "Failed to purchase ticket: " + ex.getMessage());
+                emailField.clear();
+                voyageIdField.clear();
+                vesselIdField.clear();
+                cabinIdField.clear();
+                priceField.clear();
+                paymentMethodField.clear();
+                mealTypeField.clear();
+                insuranceCheck.setSelected(false);
+                luggageField.clear();
+                purchaseDateField.clear();
+            } catch (SQLException ex1) {
+                showAlert(Alert.AlertType.ERROR, "Error", "Failed to purchase ticket: " + ex1.getMessage());
             }
         });
 
-        grid.getChildren().addAll(emailField, voyageIdField, vesselIdField, cabinIdField, priceField,
-                paymentMethodField, mealTypeField, insuranceCheck, luggageField, purchaseDateField, buyTicketBtn);
-        grid.getChildren().addAll(labels);
-        return grid;
+        VBox form = new VBox(10, emailField, voyageIdField, vesselIdField, cabinIdField, priceField, paymentMethodField,
+                mealTypeField, insuranceCheck, luggageField, purchaseDateField, errorLabel, buyTicketBtn);
+        form.setAlignment(Pos.CENTER);
+        form.setMaxWidth(350);
+        vbox.getChildren().addAll(title, form);
+        vbox.setAlignment(Pos.CENTER);
+        return vbox;
     }
 
-    private GridPane createClientsTab() {
-        GridPane grid = new GridPane();
-        grid.setPadding(new Insets(10));
-        grid.setVgap(10);
-        grid.setHgap(10);
+    private VBox createClientsTab() {
+        VBox vbox = new VBox(15);
+        vbox.setPadding(new Insets(20));
 
-        TextArea outputArea = new TextArea();
-        outputArea.setEditable(false);
-        GridPane.setConstraints(outputArea, 0, 0, 2, 1);
+        TableView<Client> table = new TableView<>();
+        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        table.setPrefHeight(400);
+
+        TableColumn<Client, String> emailCol = new TableColumn<>("Email");
+        emailCol.setCellValueFactory(new PropertyValueFactory<>("email"));
+        TableColumn<Client, String> firstNameCol = new TableColumn<>("First Name");
+        firstNameCol.setCellValueFactory(new PropertyValueFactory<>("firstName"));
+        TableColumn<Client, String> lastNameCol = new TableColumn<>("Last Name");
+        lastNameCol.setCellValueFactory(new PropertyValueFactory<>("lastName"));
+        table.getColumns().addAll(emailCol, firstNameCol, lastNameCol);
 
         Button showClientsBtn = new Button("Show Clients");
-        GridPane.setConstraints(showClientsBtn, 0, 1);
-
+        showClientsBtn.setStyle("-fx-font-weight: bold; -fx-background-color: #2196F3; -fx-text-fill: white;");
         showClientsBtn.setOnAction(e -> {
+            ObservableList<Client> data = FXCollections.observableArrayList();
             try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
-                System.out.println("Connecting to: " + DATABASE_URL + " as " + USER_NAME);
-                StringBuilder clients = new StringBuilder();
                 var rs = jdbcRunner.getClientsData(connection);
                 while (rs.next()) {
-                    clients.append("Email: ").append(rs.getString("email"))
-                            .append(", Name: ").append(rs.getString("first_name"))
-                            .append(" ").append(rs.getString("last_name"))
-                            .append("\n");
+                    data.add(new Client(
+                            rs.getString("email"),
+                            rs.getString("first_name"),
+                            rs.getString("last_name")));
                 }
-                outputArea.setText(clients.toString());
+                table.setItems(data);
             } catch (SQLException ex) {
-                outputArea.setText("Error: " + ex.getMessage());
+                showAlert(Alert.AlertType.ERROR, "Error", "Failed to load clients: " + ex.getMessage());
             }
         });
-
-        grid.getChildren().addAll(outputArea, showClientsBtn);
-        return grid;
+        vbox.getChildren().addAll(table, showClientsBtn);
+        return vbox;
     }
 
-    private GridPane createAddClientTab() {
-        GridPane grid = new GridPane();
-        grid.setPadding(new Insets(10));
-        grid.setVgap(10);
-        grid.setHgap(10);
+    private VBox createAddClientTab() {
+        VBox vbox = new VBox(20);
+        vbox.setPadding(new Insets(30));
+        vbox.setAlignment(Pos.CENTER);
+
+        Label title = new Label("Add Client");
+        title.setStyle("-fx-font-size: 20px; -fx-font-weight: bold;");
 
         TextField emailField = new TextField();
         emailField.setPromptText("Email");
-        GridPane.setConstraints(emailField, 1, 0);
-
         TextField lastNameField = new TextField();
         lastNameField.setPromptText("Last Name");
-        GridPane.setConstraints(lastNameField, 1, 1);
-
         TextField firstNameField = new TextField();
         firstNameField.setPromptText("First Name");
-        GridPane.setConstraints(firstNameField, 1, 2);
-
         TextField middleNameField = new TextField();
         middleNameField.setPromptText("Middle Name");
-        GridPane.setConstraints(middleNameField, 1, 3);
-
         TextField birthDateField = new TextField();
         birthDateField.setPromptText("Birth Date (YYYY-MM-DD)");
-        GridPane.setConstraints(birthDateField, 1, 4);
-
         TextField passportField = new TextField();
         passportField.setPromptText("Passport Series");
-        GridPane.setConstraints(passportField, 1, 5);
+
+        Label errorLabel = new Label("");
+        errorLabel.setStyle("-fx-text-fill: red; -fx-font-size: 12px;");
 
         Button addClientBtn = new Button("Add Client");
-        GridPane.setConstraints(addClientBtn, 1, 6);
-
-        Label[] labels = new Label[] {
-                new Label("Email:"), new Label("Last Name:"), new Label("First Name:"),
-                new Label("Middle Name:"), new Label("Birth Date:"), new Label("Passport Series:")
-        };
-        for (int i = 0; i < labels.length; i++) {
-            GridPane.setConstraints(labels[i], 0, i);
-        }
+        addClientBtn.setStyle(
+                "-fx-font-weight: bold; -fx-background-color: #2196F3; -fx-text-fill: white; -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
 
         addClientBtn.setOnAction(e -> {
+            errorLabel.setText("");
+            boolean valid = true;
+            StringBuilder errors = new StringBuilder();
+            if (emailField.getText().isBlank()) {
+                valid = false;
+                errors.append("Email required. ");
+                emailField.setStyle("-fx-border-color: red;");
+            } else
+                emailField.setStyle("");
+            if (lastNameField.getText().isBlank()) {
+                valid = false;
+                errors.append("Last name required. ");
+                lastNameField.setStyle("-fx-border-color: red;");
+            } else
+                lastNameField.setStyle("");
+            if (firstNameField.getText().isBlank()) {
+                valid = false;
+                errors.append("First name required. ");
+                firstNameField.setStyle("-fx-border-color: red;");
+            } else
+                firstNameField.setStyle("");
+            if (passportField.getText().isBlank() || !passportField.getText().matches("\\d+")) {
+                valid = false;
+                errors.append("Passport must be a number. ");
+                passportField.setStyle("-fx-border-color: red;");
+            } else
+                passportField.setStyle("");
+            if (birthDateField.getText().isBlank() || !birthDateField.getText().matches("\\d{4}-\\d{2}-\\d{2}")) {
+                valid = false;
+                errors.append("Date must be YYYY-MM-DD. ");
+                birthDateField.setStyle("-fx-border-color: red;");
+            } else
+                birthDateField.setStyle("");
+            // middleName не обязательное
+            if (!valid) {
+                errorLabel.setText(errors.toString());
+                return;
+            }
             try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
-                System.out.println("Connecting to: " + DATABASE_URL + " as " + USER_NAME);
                 jdbcRunner.addClient(connection,
                         lastNameField.getText(),
                         firstNameField.getText(),
@@ -272,15 +364,24 @@ public class MaritimeBookingApp extends Application {
                         birthDateField.getText(),
                         emailField.getText());
                 showAlert(Alert.AlertType.INFORMATION, "Success", "Client added successfully!");
-            } catch (SQLException | NumberFormatException ex) {
-                showAlert(Alert.AlertType.ERROR, "Error", "Failed to add client: " + ex.getMessage());
+                emailField.clear();
+                lastNameField.clear();
+                firstNameField.clear();
+                middleNameField.clear();
+                birthDateField.clear();
+                passportField.clear();
+            } catch (SQLException ex1) {
+                showAlert(Alert.AlertType.ERROR, "Error", "Failed to add client: " + ex1.getMessage());
             }
         });
 
-        grid.getChildren().addAll(emailField, lastNameField, firstNameField, middleNameField,
-                birthDateField, passportField, addClientBtn);
-        grid.getChildren().addAll(labels);
-        return grid;
+        VBox form = new VBox(10, emailField, lastNameField, firstNameField, middleNameField, birthDateField,
+                passportField, errorLabel, addClientBtn);
+        form.setAlignment(Pos.CENTER);
+        form.setMaxWidth(350);
+        vbox.getChildren().addAll(title, form);
+        vbox.setAlignment(Pos.CENTER);
+        return vbox;
     }
 
     private void showAlert(Alert.AlertType alertType, String title, String message) {
@@ -289,5 +390,60 @@ public class MaritimeBookingApp extends Application {
         alert.setHeaderText(null);
         alert.setContentText(message);
         alert.showAndWait();
+    }
+
+    // Вспомогательные классы для TableView
+    public static class Ticket {
+        private final Integer id;
+        private final String email;
+        private final Double price;
+        private final Integer voyageId;
+
+        public Ticket(Integer id, String email, Double price, Integer voyageId) {
+            this.id = id;
+            this.email = email;
+            this.price = price;
+            this.voyageId = voyageId;
+        }
+
+        public Integer getId() {
+            return id;
+        }
+
+        public String getEmail() {
+            return email;
+        }
+
+        public Double getPrice() {
+            return price;
+        }
+
+        public Integer getVoyageId() {
+            return voyageId;
+        }
+    }
+
+    public static class Client {
+        private final String email;
+        private final String firstName;
+        private final String lastName;
+
+        public Client(String email, String firstName, String lastName) {
+            this.email = email;
+            this.firstName = firstName;
+            this.lastName = lastName;
+        }
+
+        public String getEmail() {
+            return email;
+        }
+
+        public String getFirstName() {
+            return firstName;
+        }
+
+        public String getLastName() {
+            return lastName;
+        }
     }
 }
