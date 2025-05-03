@@ -44,6 +44,11 @@ public class JDBCRunner {
         return statement.executeQuery("SELECT * FROM maritime_booking.tickets;");
     }
 
+    public ResultSet getTicketsForYearWithPrice(Connection connection, int year, double price) throws SQLException {
+        Statement statement = connection.createStatement();
+        return statement.executeQuery("SELECT * FROM maritime_booking.tickets WHERE purchase_date BETWEEN    '" + year + "-01-01' AND '" + year + "-12-31' AND price <= " + price + ";");
+    }
+
     public void buyTicket(Connection connection, String email, int voyageId, String vesselId, int cabinId,
             double price, String paymentMethod, String mealType, boolean insurance,
             double luggageWeight, String purchaseDate) throws SQLException {
