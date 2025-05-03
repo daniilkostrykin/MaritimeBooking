@@ -12,6 +12,8 @@ import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -30,15 +32,12 @@ public class MaritimeBookingApp extends Application {
     public static final String DATABASE_PASS = "daniil";
     public static final String DATABASE_URL = PROTOCOL + URL_LOCALE_NAME + DATABASE_NAME;
 
-    private JDBCRunner jdbcRunner;
-
     public static void main(String[] args) {
         launch(args);
     }
 
     @Override
     public void start(Stage primaryStage) {
-        jdbcRunner = new JDBCRunner(); // Создаём экземпляр вашего класса для работы с базой данных
         primaryStage.setTitle("Maritime Booking System");
 
         TabPane tabPane = new TabPane();
@@ -150,7 +149,7 @@ public class MaritimeBookingApp extends Application {
         buyTicketBtn.setStyle(
                 "-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white; -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
 
-        buyTicketBtn.setOnAction(e -> {
+        buyTicketBtn.setOnAction(_ -> {
             errorLabel.setText("");
             boolean valid = true;
             StringBuilder errors = new StringBuilder();
@@ -213,7 +212,7 @@ public class MaritimeBookingApp extends Application {
                 return;
             }
             try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
-                jdbcRunner.buyTicket(connection,
+                buyTicket(connection,
                         emailField.getText(),
                         Integer.parseInt(voyageIdField.getText()),
                         vesselIdField.getText(),
@@ -278,7 +277,7 @@ public class MaritimeBookingApp extends Application {
         table.getColumns().add(idCol);
         table.getColumns().add(priceCol);
 
-        filterBtn.setOnAction(e -> {
+        filterBtn.setOnAction(_ -> {
             String year = yearField.getText().trim();
             String maxPrice = priceField.getText().trim();
             if (year.isEmpty() || maxPrice.isEmpty()) {
@@ -287,7 +286,7 @@ public class MaritimeBookingApp extends Application {
             }
             ObservableList<Ticket> data = FXCollections.observableArrayList();
             try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
-                var rs = jdbcRunner.getTicketsForYearWithPrice(connection, Integer.parseInt(year),
+                var rs = getTicketsForYearWithPrice(connection, Integer.parseInt(year),
                         Double.parseDouble(maxPrice));
                 while (rs.next()) {
                     data.add(new Ticket(
@@ -334,7 +333,7 @@ public class MaritimeBookingApp extends Application {
         addClientBtn.setStyle(
                 "-fx-font-weight: bold; -fx-background-color: #2196F3; -fx-text-fill: white; -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
 
-        addClientBtn.setOnAction(e -> {
+        addClientBtn.setOnAction(_ -> {
             errorLabel.setText("");
             boolean valid = true;
             StringBuilder errors = new StringBuilder();
@@ -374,12 +373,12 @@ public class MaritimeBookingApp extends Application {
                 return;
             }
             try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
-                jdbcRunner.addClient(connection,
+                addClient(connection,
                         lastNameField.getText(),
                         firstNameField.getText(),
                         middleNameField.getText(),
                         Long.parseLong(passportField.getText()),
-                        birthDateField.getText(),
+                        java.sql.Date.valueOf(birthDateField.getText()),
                         emailField.getText());
                 showAlert(Alert.AlertType.INFORMATION, "Success", "Client added successfully!");
                 emailField.clear();
@@ -426,7 +425,7 @@ public class MaritimeBookingApp extends Application {
         table.getColumns().add(idCol);
         table.getColumns().add(priceCol);
 
-        searchBtn.setOnAction(e -> {
+        searchBtn.setOnAction(_ -> {
             String email = emailField.getText().trim();
             if (email.isEmpty()) {
                 showAlert(Alert.AlertType.ERROR, "Ошибка", "Введите email клиента!");
@@ -439,7 +438,11 @@ public class MaritimeBookingApp extends Application {
             }
             ObservableList<Ticket> data = FXCollections.observableArrayList();
             try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
-                String sql = "SELECT tickets.id, tickets.price FROM maritime_booking.tickets JOIN maritime_booking.customers ON tickets.email = customers.email WHERE customers.email = ? ORDER BY tickets.id";
+                String sql = "SELECT tickets.id, tickets.price\n" +
+                        "FROM maritime_booking.tickets\n" +
+                        "JOIN maritime_booking.customers ON tickets.email = customers.email\n" +
+                        "WHERE customers.email = ?\n" +
+                        "ORDER BY tickets.id";
                 var ps = connection.prepareStatement(sql);
                 ps.setString(1, email);
                 var rs = ps.executeQuery();
@@ -481,7 +484,7 @@ public class MaritimeBookingApp extends Application {
         table.getColumns().add(emailCol);
         table.getColumns().add(nameCol);
 
-        searchBtn.setOnAction(e -> {
+        searchBtn.setOnAction(_ -> {
             String mealType = mealTypeCombo.getValue();
             if (mealType == null || mealType.isBlank()) {
                 showAlert(Alert.AlertType.ERROR, "Ошибка", "Выберите тип питания!");
@@ -489,7 +492,10 @@ public class MaritimeBookingApp extends Application {
             }
             ObservableList<ObservableList<String>> data = FXCollections.observableArrayList();
             try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
-                String sql = "SELECT customers.email, customers.first_name FROM maritime_booking.customers JOIN maritime_booking.tickets ON customers.email = tickets.email WHERE tickets.meal_type = ?";
+                String sql = "SELECT customers.email, customers.first_name\n" +
+                        "FROM maritime_booking.customers\n" +
+                        "JOIN maritime_booking.tickets ON customers.email = tickets.email\n" +
+                        "WHERE tickets.meal_type = ?";
                 var ps = connection.prepareStatement(sql);
                 ps.setString(1, mealType);
                 var rs = ps.executeQuery();
@@ -534,7 +540,7 @@ public class MaritimeBookingApp extends Application {
             showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось получить список таблиц: " + e.getMessage());
         }
 
-        tablesCombo.setOnAction(event -> {
+        tablesCombo.setOnAction(_ -> {
             String tableName = tablesCombo.getValue();
             if (tableName == null)
                 return;
@@ -600,7 +606,7 @@ public class MaritimeBookingApp extends Application {
         statusCol.setPrefWidth(120);
         table.getColumns().add(idCol);
         table.getColumns().add(statusCol);
-        searchBtn.setOnAction(e -> {
+        searchBtn.setOnAction(_ -> {
             String status = statusCombo.getValue();
             String meal = mealCombo.getValue();
             if (status == null || meal == null) {
@@ -609,7 +615,12 @@ public class MaritimeBookingApp extends Application {
             }
             ObservableList<ObservableList<String>> data = FXCollections.observableArrayList();
             try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
-                String sql = "SELECT DISTINCT voyages.id, voyages.status FROM maritime_booking.voyages JOIN maritime_booking.tickets ON tickets.voyage_id = voyages.id AND tickets.vessel_id = voyages.vessel_id JOIN maritime_booking.customers ON tickets.email = customers.email WHERE voyages.status = ? AND tickets.meal_type = ?";
+                String sql = "SELECT DISTINCT voyages.id, voyages.status\n" +
+                        "FROM maritime_booking.voyages\n" +
+                        "JOIN maritime_booking.tickets ON tickets.voyage_id = voyages.id AND tickets.vessel_id = voyages.vessel_id\n"
+                        +
+                        "JOIN maritime_booking.customers ON tickets.email = customers.email\n" +
+                        "WHERE voyages.status = ? AND tickets.meal_type = ?";
                 var ps = connection.prepareStatement(sql);
                 ps.setString(1, status);
                 ps.setString(2, meal);
@@ -649,7 +660,7 @@ public class MaritimeBookingApp extends Application {
         priceCol.setPrefWidth(120);
         table.getColumns().add(idCol);
         table.getColumns().add(priceCol);
-        searchBtn.setOnAction(e -> {
+        searchBtn.setOnAction(_ -> {
             String country = countryField.getText().trim();
             if (country.isEmpty()) {
                 showAlert(Alert.AlertType.ERROR, "Ошибка", "Введите страну!");
@@ -657,7 +668,14 @@ public class MaritimeBookingApp extends Application {
             }
             ObservableList<ObservableList<String>> data = FXCollections.observableArrayList();
             try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
-                String sql = "SELECT tickets.id, tickets.price FROM maritime_booking.tickets JOIN maritime_booking.voyages ON tickets.voyage_id = voyages.id AND tickets.vessel_id = voyages.vessel_id JOIN maritime_booking.voyage_stages ON voyage_stages.voyage_id = voyages.id AND voyage_stages.vessel_id = voyages.vessel_id JOIN maritime_booking.ports ON voyage_stages.departure_port_id = ports.un_locode WHERE ports.country = ? AND tickets.insurance = true AND voyage_stages.stop_number = 1";
+                String sql = "SELECT tickets.id, tickets.price\n" +
+                        "FROM maritime_booking.tickets\n" +
+                        "JOIN maritime_booking.voyages ON tickets.voyage_id = voyages.id AND tickets.vessel_id = voyages.vessel_id\n"
+                        +
+                        "JOIN maritime_booking.voyage_stages ON voyage_stages.voyage_id = voyages.id AND voyage_stages.vessel_id = voyages.vessel_id\n"
+                        +
+                        "JOIN maritime_booking.ports ON voyage_stages.departure_port_id = ports.un_locode\n" +
+                        "WHERE ports.country = ? AND tickets.insurance = true AND voyage_stages.stop_number = 1";
                 var ps = connection.prepareStatement(sql);
                 ps.setString(1, country.toLowerCase());
                 var rs = ps.executeQuery();
@@ -717,7 +735,7 @@ public class MaritimeBookingApp extends Application {
         TableView<ObservableList<String>> table = new TableView<>();
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         table.setPrefHeight(250);
-        addBtn.setOnAction(e -> {
+        addBtn.setOnAction(_ -> {
             // Валидация
             if (emailField.getText().isBlank() || !emailField.getText().matches("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$")) {
                 showAlert(Alert.AlertType.ERROR, "Ошибка", "Введите корректный email!");
@@ -770,7 +788,7 @@ public class MaritimeBookingApp extends Application {
                     ps1.setString(2, lastNameField.getText());
                     ps1.setString(3, firstNameField.getText());
                     ps1.setString(4, middleNameField.getText());
-                    ps1.setString(5, birthDateField.getText());
+                    ps1.setDate(5, java.sql.Date.valueOf(birthDateField.getText()));
                     ps1.setString(6, passportField.getText());
                     ps1.executeUpdate();
                     String sql2 = "INSERT INTO maritime_booking.tickets (email, voyage_id, vessel_id, cabin_id, price, payment_method, meal_type, insurance, luggage_weight, purchase_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
@@ -784,7 +802,7 @@ public class MaritimeBookingApp extends Application {
                     ps2.setString(7, mealTypeCombo.getValue());
                     ps2.setBoolean(8, insuranceCheck.isSelected());
                     ps2.setDouble(9, Double.parseDouble(luggageField.getText()));
-                    ps2.setString(10, purchaseDateField.getText());
+                    ps2.setDate(10, java.sql.Date.valueOf(purchaseDateField.getText()));
                     ps2.executeUpdate();
                     connection.commit();
                     showAlert(Alert.AlertType.INFORMATION, "Успех", "Клиент и билет успешно добавлены!");
@@ -818,7 +836,7 @@ public class MaritimeBookingApp extends Application {
         TableView<ObservableList<String>> table = new TableView<>();
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         table.setPrefHeight(200);
-        deleteBtn.setOnAction(e -> {
+        deleteBtn.setOnAction(_ -> {
             String voyageId = voyageIdField.getText().trim();
             String vesselId = vesselIdField.getText().trim();
             if (voyageId.isEmpty() || vesselId.isEmpty()) {
@@ -888,7 +906,7 @@ public class MaritimeBookingApp extends Application {
         TableView<ObservableList<String>> table = new TableView<>();
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         table.setPrefHeight(300);
-        updateBtn.setOnAction(e -> {
+        updateBtn.setOnAction(_ -> {
             String minWeight = weightField.getText().trim();
             String date = dateField.getText().trim();
             if (minWeight.isEmpty() || !minWeight.matches("\\d+(\\.\\d+)?")) {
@@ -921,28 +939,51 @@ public class MaritimeBookingApp extends Application {
         VBox vbox = new VBox(15);
         vbox.setPadding(new Insets(20));
         vbox.setAlignment(Pos.CENTER);
+
         Label label = new Label("Введите ID рейса:");
         TextField voyageIdField = new TextField();
         voyageIdField.setPromptText("ID рейса");
         Button searchBtn = new Button("Показать маршрут");
         searchBtn.setStyle("-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white;");
+
         TableView<ObservableList<String>> table = new TableView<>();
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         table.setPrefHeight(400);
-        // Колонки (выводим только часть для примера)
-        TableColumn<ObservableList<String>, String> voyageIdCol = new TableColumn<>("ID рейса");
-        voyageIdCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().get(0)));
-        voyageIdCol.setPrefWidth(80);
-        TableColumn<ObservableList<String>, String> vesselCol = new TableColumn<>("Судно");
-        vesselCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().get(1)));
-        vesselCol.setPrefWidth(100);
-        TableColumn<ObservableList<String>, String> statusCol = new TableColumn<>("Статус");
-        statusCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().get(3)));
-        statusCol.setPrefWidth(100);
-        table.getColumns().add(voyageIdCol);
-        table.getColumns().add(vesselCol);
-        table.getColumns().add(statusCol);
-        searchBtn.setOnAction(e -> {
+
+        // Основная таблица (все поля)
+        String[] columnNames = {
+                "ID рейса", "ID судна", "Название судна", "Статус рейса", "№ остановки",
+                "Код порта отправления", "Порт отправления", "Город отправления", "Страна отправления",
+                "Дата отправления",
+                "Код порта прибытия", "Порт прибытия", "Город прибытия", "Страна прибытия", "Дата прибытия"
+        };
+        for (String colName : columnNames) {
+            TableColumn<ObservableList<String>, String> col = new TableColumn<>(colName);
+            final int idx = java.util.Arrays.asList(columnNames).indexOf(colName);
+            col.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().get(idx)));
+            col.setPrefWidth(120);
+            table.getColumns().add(col);
+        }
+
+        // Дополнительная таблица маршрута по городам
+        Label routeLabel = new Label("Маршрут по городам:");
+        TableView<ObservableList<String>> routeTable = new TableView<>();
+        routeTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        routeTable.setPrefHeight(200);
+        TableColumn<ObservableList<String>, String> stopCol = new TableColumn<>("№ остановки");
+        stopCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().get(0)));
+        stopCol.setPrefWidth(100);
+        TableColumn<ObservableList<String>, String> depCityCol = new TableColumn<>("Город отправления");
+        depCityCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().get(1)));
+        depCityCol.setPrefWidth(180);
+        TableColumn<ObservableList<String>, String> arrCityCol = new TableColumn<>("Город прибытия");
+        arrCityCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().get(2)));
+        arrCityCol.setPrefWidth(180);
+        routeTable.getColumns().add(stopCol);
+        routeTable.getColumns().add(depCityCol);
+        routeTable.getColumns().add(arrCityCol);
+
+        searchBtn.setOnAction(_ -> {
             String voyageId = voyageIdField.getText().trim();
             if (voyageId.isEmpty() || !voyageId.matches("\\d+")) {
                 showAlert(Alert.AlertType.ERROR, "Ошибка", "Введите корректный ID рейса!");
@@ -950,7 +991,22 @@ public class MaritimeBookingApp extends Application {
             }
             ObservableList<ObservableList<String>> data = FXCollections.observableArrayList();
             try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
-                String sql = "SELECT v.id AS voyage_id, v.vessel_id, ves.name AS vessel_name, v.status AS voyage_status, vs.stop_number, dp.un_locode AS departure_port_code, dp.name AS departure_port_name, dp.city AS departure_port_city, dp.country AS departure_port_country, vs.departure_datetime, ap.un_locode AS arrival_port_code, ap.name AS arrival_port_name, ap.city AS arrival_port_city, ap.country AS arrival_port_country, vs.arrival_datetime, t.insurance FROM maritime_booking.voyages v JOIN maritime_booking.vessels ves ON v.vessel_id = ves.imo JOIN maritime_booking.voyage_stages vs ON v.id = vs.voyage_id AND v.vessel_id = vs.vessel_id JOIN maritime_booking.ports dp ON vs.departure_port_id = dp.un_locode JOIN maritime_booking.ports ap ON vs.arrival_port_id = ap.un_locode LEFT JOIN maritime_booking.tickets t ON v.id = t.voyage_id AND v.vessel_id = t.vessel_id WHERE v.id = ? ORDER BY v.id, vs.stop_number, t.id";
+                String sql = "SELECT v.id AS voyage_id, v.vessel_id, ves.name AS vessel_name, v.status AS voyage_status, "
+                        +
+                        "vs.stop_number, dp.un_locode AS departure_port_code, dp.name AS departure_port_name, " +
+                        "dp.city AS departure_port_city, dp.country AS departure_port_country, vs.departure_datetime, "
+                        +
+                        "ap.un_locode AS arrival_port_code, ap.name AS arrival_port_name, ap.city AS arrival_port_city, "
+                        +
+                        "ap.country AS arrival_port_country, vs.arrival_datetime " +
+                        "FROM maritime_booking.voyages v " +
+                        "JOIN maritime_booking.vessels ves ON v.vessel_id = ves.imo " +
+                        "JOIN maritime_booking.voyage_stages vs ON v.id = vs.voyage_id AND v.vessel_id = vs.vessel_id "
+                        +
+                        "JOIN maritime_booking.ports dp ON vs.departure_port_id = dp.un_locode " +
+                        "JOIN maritime_booking.ports ap ON vs.arrival_port_id = ap.un_locode " +
+                        "WHERE v.id = ? " +
+                        "ORDER BY v.id, vs.stop_number";
                 var ps = connection.prepareStatement(sql);
                 ps.setInt(1, Integer.parseInt(voyageId));
                 var rs = ps.executeQuery();
@@ -960,15 +1016,50 @@ public class MaritimeBookingApp extends Application {
                     row.add(rs.getString("vessel_id"));
                     row.add(rs.getString("vessel_name"));
                     row.add(rs.getString("voyage_status"));
-                    // ... можно добавить остальные поля по аналогии
+                    row.add(rs.getString("stop_number"));
+                    row.add(rs.getString("departure_port_code"));
+                    row.add(rs.getString("departure_port_name"));
+                    row.add(rs.getString("departure_port_city"));
+                    row.add(rs.getString("departure_port_country"));
+                    row.add(rs.getString("departure_datetime"));
+                    row.add(rs.getString("arrival_port_code"));
+                    row.add(rs.getString("arrival_port_name"));
+                    row.add(rs.getString("arrival_port_city"));
+                    row.add(rs.getString("arrival_port_country"));
+                    row.add(rs.getString("arrival_datetime"));
                     data.add(row);
                 }
                 table.setItems(data);
             } catch (SQLException ex) {
                 showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить данные: " + ex.getMessage());
             }
+
+            // Загружаем маршрут по городам
+            ObservableList<ObservableList<String>> routeData = FXCollections.observableArrayList();
+            try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
+                String sql = "SELECT vs.stop_number, dp.city AS departure_city, ap.city AS arrival_city\n" +
+                        "FROM maritime_booking.voyage_stages vs\n" +
+                        "JOIN maritime_booking.ports dp ON vs.departure_port_id = dp.un_locode\n" +
+                        "JOIN maritime_booking.ports ap ON vs.arrival_port_id = ap.un_locode\n" +
+                        "WHERE vs.voyage_id = ?\n" +
+                        "ORDER BY vs.stop_number";
+                var ps = connection.prepareStatement(sql);
+                ps.setInt(1, Integer.parseInt(voyageId));
+                var rs = ps.executeQuery();
+                while (rs.next()) {
+                    ObservableList<String> row = FXCollections.observableArrayList();
+                    row.add(rs.getString("stop_number"));
+                    row.add(rs.getString("departure_city"));
+                    row.add(rs.getString("arrival_city"));
+                    routeData.add(row);
+                }
+                routeTable.setItems(routeData);
+            } catch (SQLException ex) {
+                showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить маршрут: " + ex.getMessage());
+            }
         });
-        vbox.getChildren().addAll(label, voyageIdField, searchBtn, table);
+
+        vbox.getChildren().addAll(label, voyageIdField, searchBtn, table, routeLabel, routeTable);
         return vbox;
     }
 
@@ -1012,7 +1103,7 @@ public class MaritimeBookingApp extends Application {
         table.getColumns().add(revCol);
         table.getColumns().add(avgCol);
         table.getColumns().add(insCol);
-        searchBtn.setOnAction(e -> {
+        searchBtn.setOnAction(_ -> {
             String year = yearField.getText().trim();
             if (year.isEmpty() || !year.matches("\\d{4}")) {
                 showAlert(Alert.AlertType.ERROR, "Ошибка", "Введите корректный год!");
@@ -1020,7 +1111,18 @@ public class MaritimeBookingApp extends Application {
             }
             ObservableList<ObservableList<String>> data = FXCollections.observableArrayList();
             try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
-                String sql = "SELECT EXTRACT(MONTH FROM t.purchase_date) AS month, p1.country AS departure_country, p2.country AS arrival_country, COUNT(t.id) AS ticket_count, ROUND(SUM(t.price),0) AS total_revenue, ROUND(AVG(t.price), 0) AS avg_price, ROUND(SUM(CASE WHEN t.insurance = true THEN 1 ELSE 0 END) * 100.0 / COUNT(t.id), 0) AS insurance_percentage FROM maritime_booking.tickets t JOIN maritime_booking.voyages v ON t.voyage_id = v.id AND t.vessel_id = v.vessel_id JOIN maritime_booking.voyage_stages vs ON v.id = vs.voyage_id AND v.vessel_id = vs.vessel_id JOIN maritime_booking.ports p1 ON vs.departure_port_id = p1.un_locode JOIN maritime_booking.ports p2 ON vs.arrival_port_id = p2.un_locode WHERE t.purchase_date BETWEEN CAST(? AS date) AND CAST(? AS date) AND vs.stop_number = 1 GROUP BY EXTRACT(MONTH FROM t.purchase_date), p1.country, p2.country ORDER BY total_revenue DESC";
+                String sql = "SELECT EXTRACT(MONTH FROM t.purchase_date) AS month, p1.country AS departure_country, p2.country AS arrival_country, COUNT(t.id) AS ticket_count, ROUND(SUM(t.price),0) AS total_revenue, ROUND(AVG(t.price), 0) AS avg_price, ROUND(SUM(CASE WHEN t.insurance = true THEN 1 ELSE 0 END) * 100.0 / COUNT(t.id), 0) AS insurance_percentage\n"
+                        +
+                        "FROM maritime_booking.tickets t\n" +
+                        "JOIN maritime_booking.voyages v ON t.voyage_id = v.id AND t.vessel_id = v.vessel_id\n" +
+                        "JOIN maritime_booking.voyage_stages vs ON v.id = vs.voyage_id AND v.vessel_id = vs.vessel_id\n"
+                        +
+                        "JOIN maritime_booking.ports p1 ON vs.departure_port_id = p1.un_locode\n" +
+                        "JOIN maritime_booking.ports p2 ON vs.arrival_port_id = p2.un_locode\n" +
+                        "WHERE t.purchase_date BETWEEN CAST(? AS date) AND CAST(? AS date)\n" +
+                        "AND vs.stop_number = 1\n" +
+                        "GROUP BY EXTRACT(MONTH FROM t.purchase_date), p1.country, p2.country\n" +
+                        "ORDER BY total_revenue DESC";
                 var ps = connection.prepareStatement(sql);
                 ps.setString(1, year + "-01-01");
                 ps.setString(2, year + "-12-31");
@@ -1062,10 +1164,14 @@ public class MaritimeBookingApp extends Application {
         table.getColumns().add(emailCol);
         table.getColumns().add(cntCol);
         table.getColumns().add(avgCol);
-        searchBtn.setOnAction(e -> {
+        searchBtn.setOnAction(_ -> {
             ObservableList<ObservableList<String>> data = FXCollections.observableArrayList();
             try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
-                String sql = "SELECT c.email, COUNT(t.id) AS tickets_cnt, AVG(t.price) AS avg_price FROM maritime_booking.customers c JOIN maritime_booking.tickets t ON c.email = t.email GROUP BY c.email ORDER BY avg_price DESC";
+                String sql = "SELECT c.email, COUNT(t.id) AS tickets_cnt, AVG(t.price) AS avg_price\n" +
+                        "FROM maritime_booking.customers c\n" +
+                        "JOIN maritime_booking.tickets t ON c.email = t.email\n" +
+                        "GROUP BY c.email\n" +
+                        "ORDER BY avg_price DESC";
                 var stmt = connection.createStatement();
                 var rs = stmt.executeQuery(sql);
                 while (rs.next()) {
@@ -1105,10 +1211,15 @@ public class MaritimeBookingApp extends Application {
         table.getColumns().add(depCol);
         table.getColumns().add(arrCol);
         table.getColumns().add(revCol);
-        searchBtn.setOnAction(e -> {
+        searchBtn.setOnAction(_ -> {
             ObservableList<ObservableList<String>> data = FXCollections.observableArrayList();
             try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
-                String sql = "SELECT vs.departure_port_id, vs.arrival_port_id, SUM(t.price) AS total_revenue FROM maritime_booking.voyage_stages vs JOIN maritime_booking.tickets t ON vs.voyage_id = t.voyage_id AND vs.vessel_id = t.vessel_id GROUP BY vs.departure_port_id, vs.arrival_port_id ORDER BY total_revenue DESC";
+                String sql = "SELECT vs.departure_port_id, vs.arrival_port_id, SUM(t.price) AS total_revenue\n" +
+                        "FROM maritime_booking.voyage_stages vs\n" +
+                        "JOIN maritime_booking.tickets t ON vs.voyage_id = t.voyage_id AND vs.vessel_id = t.vessel_id\n"
+                        +
+                        "GROUP BY vs.departure_port_id, vs.arrival_port_id\n" +
+                        "ORDER BY total_revenue DESC";
                 var stmt = connection.createStatement();
                 var rs = stmt.executeQuery(sql);
                 while (rs.next()) {
@@ -1159,6 +1270,96 @@ public class MaritimeBookingApp extends Application {
             }
         } catch (SQLException e) {
             showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить таблицу: " + e.getMessage());
+        }
+    }
+
+    private ResultSet getTicketsForYearWithPrice(Connection connection, int year, double price) throws SQLException {
+        return connection.createStatement().executeQuery(
+                "SELECT * FROM maritime_booking.tickets WHERE purchase_date BETWEEN    '" + year + "-01-01' AND '"
+                        + year + "-12-31' AND price <= " + price + ";");
+    }
+
+    private void buyTicket(Connection connection, String email, int voyageId, String vesselId, int cabinId,
+            double price, String paymentMethod, String mealType, boolean insurance,
+            double luggageWeight, String purchaseDate) throws SQLException {
+        if (email == null || email.isBlank() || voyageId <= 0 || vesselId == null || vesselId.isBlank() ||
+                cabinId <= 0 || price <= 0 || paymentMethod == null || mealType == null || purchaseDate == null) {
+            throw new SQLException("Invalid input parameters.");
+        }
+        PreparedStatement checkCustomerStmt = connection.prepareStatement(
+                "SELECT 1 FROM maritime_booking.customers WHERE email = ?");
+        checkCustomerStmt.setString(1, email);
+        ResultSet customerRs = checkCustomerStmt.executeQuery();
+        if (!customerRs.next()) {
+            throw new SQLException("Customer with email " + email + " does not exist.");
+        }
+        PreparedStatement checkVoyageStmt = connection.prepareStatement(
+                "SELECT 1 FROM maritime_booking.voyages WHERE id = ? AND vessel_id = ?");
+        checkVoyageStmt.setInt(1, voyageId);
+        checkVoyageStmt.setString(2, vesselId);
+        ResultSet voyageRs = checkVoyageStmt.executeQuery();
+        if (!voyageRs.next()) {
+            throw new SQLException("Voyage with ID " + voyageId + " and vessel ID " + vesselId + " does not exist.");
+        }
+        PreparedStatement checkCabinStmt = connection.prepareStatement(
+                "SELECT 1 FROM maritime_booking.cabins WHERE id = ? AND vessel_id = ?");
+        checkCabinStmt.setInt(1, cabinId);
+        checkCabinStmt.setString(2, vesselId);
+        ResultSet cabinRs = checkCabinStmt.executeQuery();
+        if (!cabinRs.next()) {
+            throw new SQLException("Cabin with ID " + cabinId + " for vessel " + vesselId + " does not exist.");
+        }
+        String insertTicketSql = "INSERT INTO maritime_booking.tickets (email, voyage_id, vessel_id, cabin_id, price, "
+                +
+                "payment_method, meal_type, insurance, luggage_weight, purchase_date) " +
+                "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id";
+        PreparedStatement insertStmt = connection.prepareStatement(insertTicketSql);
+        insertStmt.setString(1, email);
+        insertStmt.setInt(2, voyageId);
+        insertStmt.setString(3, vesselId);
+        insertStmt.setInt(4, cabinId);
+        insertStmt.setDouble(5, price);
+        insertStmt.setString(6, paymentMethod);
+        insertStmt.setString(7, mealType);
+        insertStmt.setBoolean(8, insurance);
+        insertStmt.setDouble(9, luggageWeight);
+        insertStmt.setDate(10, java.sql.Date.valueOf(purchaseDate));
+        int count = insertStmt.executeUpdate();
+        if (count > 0) {
+            ResultSet generatedKeys = insertStmt.getGeneratedKeys();
+            if (generatedKeys.next()) {
+                System.out.println("Inserted ticket with ID " + generatedKeys.getInt(1));
+            }
+        } else {
+            throw new SQLException("Failed to insert ticket.");
+        }
+    }
+
+    private void addClient(Connection connection, String lastName, String firstName, String middleName,
+            long passportSeries, java.sql.Date birthDate, String email) throws SQLException {
+        if (lastName == null || lastName.isBlank() || firstName == null || firstName.isBlank() ||
+                passportSeries <= 0 || birthDate == null || email == null || email.isBlank()) {
+            throw new SQLException("Invalid input parameters.");
+        }
+        PreparedStatement statement = connection.prepareStatement(
+                "INSERT INTO maritime_booking.customers (email, last_name, first_name, middle_name, birth_date, passport_series) "
+                        +
+                        "VALUES (?, ?, ?, ?, ?, ?) RETURNING email",
+                java.sql.Statement.RETURN_GENERATED_KEYS);
+        statement.setString(1, email);
+        statement.setString(2, lastName);
+        statement.setString(3, firstName);
+        statement.setString(4, middleName);
+        statement.setDate(5, birthDate);
+        statement.setLong(6, passportSeries);
+        int count = statement.executeUpdate();
+        if (count > 0) {
+            ResultSet rs = statement.getGeneratedKeys();
+            if (rs.next()) {
+                System.out.println("Added client with email: " + rs.getString(1));
+            }
+        } else {
+            throw new SQLException("Failed to add client.");
         }
     }
 }
