@@ -22,8 +22,6 @@ import javafx.scene.control.TableView;
 import javafx.geometry.Pos;
 import javafx.scene.layout.VBox;
 
-import javafx.scene.control.cell.PropertyValueFactory;
-
 public class MaritimeBookingApp extends Application {
     private static final String PROTOCOL = "jdbc:postgresql://";
     private static final String URL_LOCALE_NAME = "localhost:5433/";
@@ -268,16 +266,16 @@ public class MaritimeBookingApp extends Application {
         filterBtn.setStyle(
                 "-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white; -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
 
-        TableView<Ticket> table = new TableView<>();
-        //table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        TableView<ObservableList<String>> table = new TableView<>();
+        // table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         table.setPrefHeight(400);
 
-        TableColumn<Ticket, Integer> idCol = new TableColumn<>("ID");
-        idCol.setCellValueFactory(new PropertyValueFactory<>("id"));
+        TableColumn<ObservableList<String>, String> idCol = new TableColumn<>("ID");
+        idCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().get(0)));
         idCol.setPrefWidth(60);
 
-        TableColumn<Ticket, Double> priceCol = new TableColumn<>("Цена");
-        priceCol.setCellValueFactory(new PropertyValueFactory<>("price"));
+        TableColumn<ObservableList<String>, String> priceCol = new TableColumn<>("Цена");
+        priceCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().get(1)));
         priceCol.setPrefWidth(100);
 
         table.getColumns().add(idCol);
@@ -290,14 +288,15 @@ public class MaritimeBookingApp extends Application {
                 showAlert(Alert.AlertType.ERROR, "Ошибка", "Введите год и максимальную цену!");
                 return;
             }
-            ObservableList<Ticket> data = FXCollections.observableArrayList();
+            ObservableList<ObservableList<String>> data = FXCollections.observableArrayList();
             try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
                 var rs = getTicketsForYearWithPrice(connection, Integer.parseInt(year),
                         Double.parseDouble(maxPrice));
                 while (rs.next()) {
-                    data.add(new Ticket(
-                            rs.getInt("id"),
-                            rs.getDouble("price")));
+                    ObservableList<String> row = FXCollections.observableArrayList();
+                    row.add(rs.getString("id"));
+                    row.add(rs.getString("price"));
+                    data.add(row);
                 }
                 table.setItems(data);
             } catch (SQLException ex) {
@@ -320,26 +319,26 @@ public class MaritimeBookingApp extends Application {
         vbox.setPadding(new Insets(30));
         vbox.setAlignment(Pos.CENTER);
 
-        Label title = new Label("Add Client");
+        Label title = new Label("Добавление клиента");
         title.setStyle("-fx-font-size: 20px; -fx-font-weight: bold;");
 
         TextField emailField = new TextField();
         emailField.setPromptText("Email");
         TextField lastNameField = new TextField();
-        lastNameField.setPromptText("Last Name");
+        lastNameField.setPromptText("Фамилия");
         TextField firstNameField = new TextField();
-        firstNameField.setPromptText("First Name");
+        firstNameField.setPromptText("Имя");
         TextField middleNameField = new TextField();
-        middleNameField.setPromptText("Middle Name");
+        middleNameField.setPromptText("Отчество");
         TextField birthDateField = new TextField();
-        birthDateField.setPromptText("Birth Date (YYYY-MM-DD)");
+        birthDateField.setPromptText("Дата рождения (ГГГГ-ММ-ДД)");
         TextField passportField = new TextField();
-        passportField.setPromptText("Passport Series");
+        passportField.setPromptText("Серия паспорта");
 
         Label errorLabel = new Label("");
         errorLabel.setStyle("-fx-text-fill: red; -fx-font-size: 12px;");
 
-        Button addClientBtn = new Button("Add Client");
+        Button addClientBtn = new Button("Добавить клиента");
         addClientBtn.setStyle(
                 "-fx-font-weight: bold; -fx-background-color: #2196F3; -fx-text-fill: white; -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
 
@@ -349,31 +348,31 @@ public class MaritimeBookingApp extends Application {
             StringBuilder errors = new StringBuilder();
             if (emailField.getText().isBlank()) {
                 valid = false;
-                errors.append("Email required. ");
+                errors.append("Требуется email. ");
                 emailField.setStyle("-fx-border-color: red;");
             } else
                 emailField.setStyle("");
             if (lastNameField.getText().isBlank()) {
                 valid = false;
-                errors.append("Last name required. ");
+                errors.append("Требуется фамилия. ");
                 lastNameField.setStyle("-fx-border-color: red;");
             } else
                 lastNameField.setStyle("");
             if (firstNameField.getText().isBlank()) {
                 valid = false;
-                errors.append("First name required. ");
+                errors.append("Требуется имя. ");
                 firstNameField.setStyle("-fx-border-color: red;");
             } else
                 firstNameField.setStyle("");
             if (passportField.getText().isBlank() || !passportField.getText().matches("\\d+")) {
                 valid = false;
-                errors.append("Passport must be a number. ");
+                errors.append("Серия паспорта должна быть числом. ");
                 passportField.setStyle("-fx-border-color: red;");
             } else
                 passportField.setStyle("");
             if (birthDateField.getText().isBlank() || !birthDateField.getText().matches("\\d{4}-\\d{2}-\\d{2}")) {
                 valid = false;
-                errors.append("Date must be YYYY-MM-DD. ");
+                errors.append("Дата должна быть в формате ГГГГ-ММ-ДД. ");
                 birthDateField.setStyle("-fx-border-color: red;");
             } else
                 birthDateField.setStyle("");
@@ -390,7 +389,7 @@ public class MaritimeBookingApp extends Application {
                         Long.parseLong(passportField.getText()),
                         java.sql.Date.valueOf(birthDateField.getText()),
                         emailField.getText());
-                showAlert(Alert.AlertType.INFORMATION, "Success", "Client added successfully!");
+                showAlert(Alert.AlertType.INFORMATION, "Успех", "Клиент успешно добавлен!");
                 emailField.clear();
                 lastNameField.clear();
                 firstNameField.clear();
@@ -398,7 +397,7 @@ public class MaritimeBookingApp extends Application {
                 birthDateField.clear();
                 passportField.clear();
             } catch (SQLException ex1) {
-                showAlert(Alert.AlertType.ERROR, "Error", "Failed to add client: " + ex1.getMessage());
+                showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось добавить клиента: " + ex1.getMessage());
             }
         });
 
@@ -426,15 +425,15 @@ public class MaritimeBookingApp extends Application {
         searchBtn.setStyle(
                 "-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white; -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
 
-        TableView<Ticket> table = new TableView<>();
-        //table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        TableView<ObservableList<String>> table = new TableView<>();
+        // table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         table.setPrefHeight(400);
 
-        TableColumn<Ticket, Integer> idCol = new TableColumn<>("ID");
-        idCol.setCellValueFactory(new PropertyValueFactory<>("id"));
+        TableColumn<ObservableList<String>, String> idCol = new TableColumn<>("ID");
+        idCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().get(0)));
         idCol.setPrefWidth(60);
-        TableColumn<Ticket, Double> priceCol = new TableColumn<>("Цена");
-        priceCol.setCellValueFactory(new PropertyValueFactory<>("price"));
+        TableColumn<ObservableList<String>, String> priceCol = new TableColumn<>("Цена");
+        priceCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().get(1)));
         priceCol.setPrefWidth(100);
         table.getColumns().add(idCol);
         table.getColumns().add(priceCol);
@@ -450,7 +449,7 @@ public class MaritimeBookingApp extends Application {
                 showAlert(Alert.AlertType.ERROR, "Ошибка", "Некорректный формат email!");
                 return;
             }
-            ObservableList<Ticket> data = FXCollections.observableArrayList();
+            ObservableList<ObservableList<String>> data = FXCollections.observableArrayList();
             try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
                 String sql = "SELECT tickets.id, tickets.price\n" +
                         "FROM maritime_booking.tickets\n" +
@@ -461,7 +460,7 @@ public class MaritimeBookingApp extends Application {
                 ps.setString(1, email);
                 var rs = ps.executeQuery();
                 while (rs.next()) {
-                    data.add(new Ticket(rs.getInt("id"), rs.getDouble("price")));
+                    data.add(FXCollections.observableArrayList(rs.getString("id"), rs.getString("price")));
                 }
                 table.setItems(data);
             } catch (SQLException ex) {
@@ -496,7 +495,7 @@ public class MaritimeBookingApp extends Application {
                 "-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white; -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
 
         TableView<ObservableList<String>> table = new TableView<>();
-        //table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        // table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         table.setPrefHeight(400);
 
         TableColumn<ObservableList<String>, String> emailCol = new TableColumn<>("Email");
@@ -630,7 +629,7 @@ public class MaritimeBookingApp extends Application {
         searchBtn.setStyle(
                 "-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white; -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
         TableView<ObservableList<String>> table = new TableView<>();
-        //table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        // table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         table.setPrefHeight(400);
         TableColumn<ObservableList<String>, String> idCol = new TableColumn<>("ID");
         idCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().get(0)));
@@ -694,7 +693,7 @@ public class MaritimeBookingApp extends Application {
         searchBtn.setStyle(
                 "-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white; -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
         TableView<ObservableList<String>> table = new TableView<>();
-        //table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        // table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         table.setPrefHeight(400);
         TableColumn<ObservableList<String>, String> idCol = new TableColumn<>("ID");
         idCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().get(0)));
@@ -761,7 +760,7 @@ public class MaritimeBookingApp extends Application {
         TextField middleNameField = new TextField();
         middleNameField.setPromptText("Отчество");
         TextField birthDateField = new TextField();
-        birthDateField.setPromptText("Дата рождения (YYYY-MM-DD)");
+        birthDateField.setPromptText("Дата рождения (ГГГГ-ММ-ДД)");
         TextField passportField = new TextField();
         passportField.setPromptText("Паспорт");
         // Билет
@@ -782,12 +781,12 @@ public class MaritimeBookingApp extends Application {
         TextField luggageField = new TextField();
         luggageField.setPromptText("Вес багажа");
         TextField purchaseDateField = new TextField();
-        purchaseDateField.setPromptText("Дата покупки (YYYY-MM-DD)");
+        purchaseDateField.setPromptText("Дата покупки (ГГГГ-ММ-ДД)");
         Button addBtn = new Button("Добавить клиента и билет");
         addBtn.setStyle(
                 "-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white; -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
         TableView<ObservableList<String>> table = new TableView<>();
-        //table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        // table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         table.setPrefHeight(250);
         addBtn.setOnAction(_ -> {
             // Валидация
@@ -898,7 +897,7 @@ public class MaritimeBookingApp extends Application {
         deleteBtn.setStyle(
                 "-fx-font-weight: bold; -fx-background-color: #E53935; -fx-text-fill: white; -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
         TableView<ObservableList<String>> table = new TableView<>();
-        //table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        // table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         table.setPrefHeight(200);
         deleteBtn.setOnAction(_ -> {
             String voyageId = voyageIdField.getText().trim();
@@ -978,7 +977,7 @@ public class MaritimeBookingApp extends Application {
         updateBtn.setStyle(
                 "-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white; -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
         TableView<ObservableList<String>> table = new TableView<>();
-        //table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        // table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         table.setPrefHeight(300);
         updateBtn.setOnAction(_ -> {
             String minWeight = weightField.getText().trim();
@@ -1030,7 +1029,7 @@ public class MaritimeBookingApp extends Application {
                 "-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white; -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
 
         TableView<ObservableList<String>> table = new TableView<>();
-        //table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        // table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         table.setPrefHeight(400);
 
         // Основная таблица (все поля)
@@ -1051,7 +1050,7 @@ public class MaritimeBookingApp extends Application {
         // Дополнительная таблица маршрута по городам
         Label routeLabel = new Label("Маршрут по городам:");
         TableView<ObservableList<String>> routeTable = new TableView<>();
-        //routeTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        // routeTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         routeTable.setPrefHeight(200);
         TableColumn<ObservableList<String>, String> stopCol = new TableColumn<>("№ остановки");
         stopCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().get(0)));
@@ -1165,7 +1164,7 @@ public class MaritimeBookingApp extends Application {
         searchBtn.setStyle(
                 "-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white; -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
         TableView<ObservableList<String>> table = new TableView<>();
-        //table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        // table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         table.setPrefHeight(400);
         TableColumn<ObservableList<String>, String> monthCol = new TableColumn<>("Месяц");
         monthCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().get(0)));
@@ -1253,7 +1252,7 @@ public class MaritimeBookingApp extends Application {
         searchBtn.setStyle(
                 "-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white; -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
         TableView<ObservableList<String>> table = new TableView<>();
-        //table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        // table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         table.setPrefHeight(400);
         TableColumn<ObservableList<String>, String> emailCol = new TableColumn<>("Email");
         emailCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().get(0)));
@@ -1311,7 +1310,7 @@ public class MaritimeBookingApp extends Application {
         searchBtn.setStyle(
                 "-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white; -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
         TableView<ObservableList<String>> table = new TableView<>();
-       // table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        // table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         table.setPrefHeight(400);
         TableColumn<ObservableList<String>, String> depCol = new TableColumn<>("Порт отправления");
         depCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().get(0)));
