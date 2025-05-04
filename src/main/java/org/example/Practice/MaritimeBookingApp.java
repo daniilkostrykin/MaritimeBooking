@@ -269,7 +269,7 @@ public class MaritimeBookingApp extends Application {
                 "-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white; -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
 
         TableView<Ticket> table = new TableView<>();
-        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        //table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         table.setPrefHeight(400);
 
         TableColumn<Ticket, Integer> idCol = new TableColumn<>("ID");
@@ -427,7 +427,7 @@ public class MaritimeBookingApp extends Application {
                 "-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white; -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
 
         TableView<Ticket> table = new TableView<>();
-        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        //table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         table.setPrefHeight(400);
 
         TableColumn<Ticket, Integer> idCol = new TableColumn<>("ID");
@@ -496,7 +496,7 @@ public class MaritimeBookingApp extends Application {
                 "-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white; -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
 
         TableView<ObservableList<String>> table = new TableView<>();
-        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        //table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         table.setPrefHeight(400);
 
         TableColumn<ObservableList<String>, String> emailCol = new TableColumn<>("Email");
@@ -630,7 +630,7 @@ public class MaritimeBookingApp extends Application {
         searchBtn.setStyle(
                 "-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white; -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
         TableView<ObservableList<String>> table = new TableView<>();
-        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        //table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         table.setPrefHeight(400);
         TableColumn<ObservableList<String>, String> idCol = new TableColumn<>("ID");
         idCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().get(0)));
@@ -694,7 +694,7 @@ public class MaritimeBookingApp extends Application {
         searchBtn.setStyle(
                 "-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white; -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
         TableView<ObservableList<String>> table = new TableView<>();
-        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        //table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         table.setPrefHeight(400);
         TableColumn<ObservableList<String>, String> idCol = new TableColumn<>("ID");
         idCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().get(0)));
@@ -787,7 +787,7 @@ public class MaritimeBookingApp extends Application {
         addBtn.setStyle(
                 "-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white; -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
         TableView<ObservableList<String>> table = new TableView<>();
-        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        //table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         table.setPrefHeight(250);
         addBtn.setOnAction(_ -> {
             // Валидация
@@ -898,7 +898,7 @@ public class MaritimeBookingApp extends Application {
         deleteBtn.setStyle(
                 "-fx-font-weight: bold; -fx-background-color: #E53935; -fx-text-fill: white; -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
         TableView<ObservableList<String>> table = new TableView<>();
-        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        //table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         table.setPrefHeight(200);
         deleteBtn.setOnAction(_ -> {
             String voyageId = voyageIdField.getText().trim();
@@ -978,7 +978,7 @@ public class MaritimeBookingApp extends Application {
         updateBtn.setStyle(
                 "-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white; -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
         TableView<ObservableList<String>> table = new TableView<>();
-        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        //table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         table.setPrefHeight(300);
         updateBtn.setOnAction(_ -> {
             String minWeight = weightField.getText().trim();
@@ -1030,7 +1030,7 @@ public class MaritimeBookingApp extends Application {
                 "-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white; -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
 
         TableView<ObservableList<String>> table = new TableView<>();
-        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        //table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         table.setPrefHeight(400);
 
         // Основная таблица (все поля)
@@ -1051,7 +1051,7 @@ public class MaritimeBookingApp extends Application {
         // Дополнительная таблица маршрута по городам
         Label routeLabel = new Label("Маршрут по городам:");
         TableView<ObservableList<String>> routeTable = new TableView<>();
-        routeTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        //routeTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         routeTable.setPrefHeight(200);
         TableColumn<ObservableList<String>, String> stopCol = new TableColumn<>("№ остановки");
         stopCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().get(0)));
@@ -1165,7 +1165,7 @@ public class MaritimeBookingApp extends Application {
         searchBtn.setStyle(
                 "-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white; -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
         TableView<ObservableList<String>> table = new TableView<>();
-        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        //table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         table.setPrefHeight(400);
         TableColumn<ObservableList<String>, String> monthCol = new TableColumn<>("Месяц");
         monthCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().get(0)));
@@ -1253,7 +1253,7 @@ public class MaritimeBookingApp extends Application {
         searchBtn.setStyle(
                 "-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white; -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
         TableView<ObservableList<String>> table = new TableView<>();
-        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        //table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         table.setPrefHeight(400);
         TableColumn<ObservableList<String>, String> emailCol = new TableColumn<>("Email");
         emailCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().get(0)));
@@ -1311,7 +1311,7 @@ public class MaritimeBookingApp extends Application {
         searchBtn.setStyle(
                 "-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white; -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
         TableView<ObservableList<String>> table = new TableView<>();
-        table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+       // table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         table.setPrefHeight(400);
         TableColumn<ObservableList<String>, String> depCol = new TableColumn<>("Порт отправления");
         depCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().get(0)));
