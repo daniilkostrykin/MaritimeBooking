@@ -762,76 +762,124 @@ public class MaritimeBookingApp extends Application {
         TextField birthDateField = new TextField();
         birthDateField.setPromptText("Дата рождения (ГГГГ-ММ-ДД)");
         TextField passportField = new TextField();
-        passportField.setPromptText("Паспорт");
+        passportField.setPromptText("Серия паспорта (10 цифр)");
+
+        // Выпадающие списки для ID
+        Label voyageLabel = new Label("Выберите рейс:");
+        ComboBox<String> voyageCombo = new ComboBox<>();
+        voyageCombo.setPromptText("ID рейса");
+
+        Label vesselLabel = new Label("Выберите судно:");
+        ComboBox<String> vesselCombo = new ComboBox<>();
+        vesselCombo.setPromptText("IMO судна");
+
+        Label cabinLabel = new Label("Выберите каюту:");
+        ComboBox<String> cabinCombo = new ComboBox<>();
+        cabinCombo.setPromptText("ID каюты");
+
+        // Загрузка данных в ComboBox
+        try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
+            // Загрузка рейсов
+            var rs = connection.createStatement().executeQuery(
+                    "SELECT id, vessel_id FROM maritime_booking.voyages WHERE status = 'active'");
+            while (rs.next()) {
+                voyageCombo.getItems().add(rs.getString("id") + " (IMO: " + rs.getString("vessel_id") + ")");
+            }
+
+            // Загрузка судов
+            rs = connection.createStatement().executeQuery(
+                    "SELECT imo, name FROM maritime_booking.vessels");
+            while (rs.next()) {
+                vesselCombo.getItems().add(rs.getString("imo") + " (" + rs.getString("name") + ")");
+            }
+
+            // Загрузка кают
+            rs = connection.createStatement().executeQuery(
+                    "SELECT id, vessel_id, category, capacity, window_view FROM maritime_booking.cabins");
+            while (rs.next()) {
+                cabinCombo.getItems().add(rs.getString("id") + " (IMO: " + rs.getString("vessel_id") +
+                        ", категория: " + rs.getString("category") +
+                        ", вместимость: " + rs.getString("capacity") +
+                        ", окно: " + (rs.getBoolean("window_view") ? "да" : "нет") + ")");
+            }
+        } catch (SQLException e) {
+            showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить данные: " + e.getMessage());
+        }
+
         // Билет
-        TextField voyageIdField = new TextField();
-        voyageIdField.setPromptText("ID рейса");
-        TextField vesselIdField = new TextField();
-        vesselIdField.setPromptText("ID судна");
-        TextField cabinIdField = new TextField();
-        cabinIdField.setPromptText("ID каюты");
         TextField priceField = new TextField();
         priceField.setPromptText("Цена");
-        TextField paymentMethodField = new TextField();
-        paymentMethodField.setPromptText("Способ оплаты");
+        ComboBox<String> paymentMethodCombo = new ComboBox<>();
+        paymentMethodCombo.getItems().addAll("card", "cash");
+        paymentMethodCombo.setPromptText("Способ оплаты");
         ComboBox<String> mealTypeCombo = new ComboBox<>();
-        mealTypeCombo.getItems().addAll("full_board", "breakfast", "half_board", "no_meals");
+        mealTypeCombo.getItems().addAll("no_meals", "breakfast", "half_board", "full_board", "all_inclusive",
+                "ultra_all_inclusive");
         mealTypeCombo.setPromptText("Тип питания");
         CheckBox insuranceCheck = new CheckBox("Страховка");
         TextField luggageField = new TextField();
-        luggageField.setPromptText("Вес багажа");
+        luggageField.setPromptText("Вес багажа (кг)");
         TextField purchaseDateField = new TextField();
         purchaseDateField.setPromptText("Дата покупки (ГГГГ-ММ-ДД)");
         Button addBtn = new Button("Добавить клиента и билет");
         addBtn.setStyle(
                 "-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white; -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
         TableView<ObservableList<String>> table = new TableView<>();
-        // table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         table.setPrefHeight(250);
         addBtn.setOnAction(_ -> {
             // Валидация
-            if (emailField.getText().isBlank() || !emailField.getText().matches("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$")) {
+            if (emailField.getText().isBlank()
+                    || !emailField.getText().matches("^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$")) {
                 showAlert(Alert.AlertType.ERROR, "Ошибка", "Введите корректный email!");
                 return;
             }
             if (lastNameField.getText().isBlank() || firstNameField.getText().isBlank()
-                    || passportField.getText().isBlank() || !passportField.getText().matches("\\d+")) {
-                showAlert(Alert.AlertType.ERROR, "Ошибка", "Заполните ФИО и паспорт!");
+                    || passportField.getText().isBlank() || !passportField.getText().matches("^[1-9][0-9]{9}$")) {
+                showAlert(Alert.AlertType.ERROR, "Ошибка", "Заполните ФИО и серию паспорта (10 цифр)!");
                 return;
             }
             if (birthDateField.getText().isBlank() || !birthDateField.getText().matches("\\d{4}-\\d{2}-\\d{2}")) {
-                showAlert(Alert.AlertType.ERROR, "Ошибка", "Дата рождения должна быть в формате YYYY-MM-DD!");
+                showAlert(Alert.AlertType.ERROR, "Ошибка", "Дата рождения должна быть в формате ГГГГ-ММ-ДД!");
                 return;
             }
-            if (voyageIdField.getText().isBlank() || !voyageIdField.getText().matches("\\d+")) {
-                showAlert(Alert.AlertType.ERROR, "Ошибка", "ID рейса должен быть числом!");
+            if (voyageCombo.getValue() == null) {
+                showAlert(Alert.AlertType.ERROR, "Ошибка", "Выберите рейс!");
                 return;
             }
-            if (vesselIdField.getText().isBlank() || cabinIdField.getText().isBlank()
-                    || !cabinIdField.getText().matches("\\d+")) {
-                showAlert(Alert.AlertType.ERROR, "Ошибка", "ID судна и ID каюты обязательны!");
+            if (vesselCombo.getValue() == null) {
+                showAlert(Alert.AlertType.ERROR, "Ошибка", "Выберите судно!");
+                return;
+            }
+            if (cabinCombo.getValue() == null) {
+                showAlert(Alert.AlertType.ERROR, "Ошибка", "Выберите каюту!");
                 return;
             }
             if (priceField.getText().isBlank() || !priceField.getText().matches("\\d+(\\.\\d+)?")) {
                 showAlert(Alert.AlertType.ERROR, "Ошибка", "Цена должна быть числом!");
                 return;
             }
-            if (paymentMethodField.getText().isBlank()) {
-                showAlert(Alert.AlertType.ERROR, "Ошибка", "Укажите способ оплаты!");
+            if (paymentMethodCombo.getValue() == null) {
+                showAlert(Alert.AlertType.ERROR, "Ошибка", "Выберите способ оплаты!");
                 return;
             }
             if (mealTypeCombo.getValue() == null) {
                 showAlert(Alert.AlertType.ERROR, "Ошибка", "Выберите тип питания!");
                 return;
             }
-            if (luggageField.getText().isBlank() || !luggageField.getText().matches("\\d+(\\.\\d+)?")) {
-                showAlert(Alert.AlertType.ERROR, "Ошибка", "Вес багажа должен быть числом!");
+            if (luggageField.getText().isBlank() || !luggageField.getText().matches("\\d+")) {
+                showAlert(Alert.AlertType.ERROR, "Ошибка", "Вес багажа должен быть целым числом!");
                 return;
             }
             if (purchaseDateField.getText().isBlank() || !purchaseDateField.getText().matches("\\d{4}-\\d{2}-\\d{2}")) {
-                showAlert(Alert.AlertType.ERROR, "Ошибка", "Дата покупки должна быть в формате YYYY-MM-DD!");
+                showAlert(Alert.AlertType.ERROR, "Ошибка", "Дата покупки должна быть в формате ГГГГ-ММ-ДД!");
                 return;
             }
+
+            // Извлечение ID из выбранных значений
+            String voyageId = voyageCombo.getValue().split(" ")[0];
+            String vesselId = vesselCombo.getValue().split(" ")[0];
+            String cabinId = cabinCombo.getValue().split(" ")[0];
+
             try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
                 connection.setAutoCommit(false);
                 try {
@@ -847,14 +895,14 @@ public class MaritimeBookingApp extends Application {
                     String sql2 = "INSERT INTO maritime_booking.tickets (email, voyage_id, vessel_id, cabin_id, price, payment_method, meal_type, insurance, luggage_weight, purchase_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
                     var ps2 = connection.prepareStatement(sql2);
                     ps2.setString(1, emailField.getText());
-                    ps2.setInt(2, Integer.parseInt(voyageIdField.getText()));
-                    ps2.setString(3, vesselIdField.getText());
-                    ps2.setInt(4, Integer.parseInt(cabinIdField.getText()));
+                    ps2.setInt(2, Integer.parseInt(voyageId));
+                    ps2.setString(3, vesselId);
+                    ps2.setInt(4, Integer.parseInt(cabinId));
                     ps2.setDouble(5, Double.parseDouble(priceField.getText()));
-                    ps2.setString(6, paymentMethodField.getText());
+                    ps2.setString(6, paymentMethodCombo.getValue());
                     ps2.setString(7, mealTypeCombo.getValue());
                     ps2.setBoolean(8, insuranceCheck.isSelected());
-                    ps2.setDouble(9, Double.parseDouble(luggageField.getText()));
+                    ps2.setInt(9, Integer.parseInt(luggageField.getText()));
                     ps2.setDate(10, java.sql.Date.valueOf(purchaseDateField.getText()));
                     ps2.executeUpdate();
                     connection.commit();
@@ -870,8 +918,8 @@ public class MaritimeBookingApp extends Application {
             }
         });
         VBox form = new VBox(10, label, emailField, lastNameField, firstNameField, middleNameField, birthDateField,
-                passportField, voyageIdField, vesselIdField, cabinIdField, priceField, paymentMethodField,
-                mealTypeCombo, insuranceCheck, luggageField, purchaseDateField, addBtn);
+                passportField, voyageLabel, voyageCombo, vesselLabel, vesselCombo, cabinLabel, cabinCombo, priceField,
+                paymentMethodCombo, mealTypeCombo, insuranceCheck, luggageField, purchaseDateField, addBtn);
         form.setAlignment(Pos.CENTER);
         form.setMaxWidth(350);
         vbox.getChildren().clear();
