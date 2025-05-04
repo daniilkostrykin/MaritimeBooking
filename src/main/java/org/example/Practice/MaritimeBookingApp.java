@@ -21,6 +21,8 @@ import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.geometry.Pos;
 import javafx.scene.layout.VBox;
+import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.HBox;
 
 public class MaritimeBookingApp extends Application {
     private static final String PROTOCOL = "jdbc:postgresql://";
@@ -105,9 +107,37 @@ public class MaritimeBookingApp extends Application {
                 addClientAndTicketTab, deleteVoyageTab, luggagePriceUpdateTab, voyageRouteTab, ticketSalesTab,
                 avgCheckTab, totalRevenueTab);
 
-        Scene scene = new Scene(tabPane, 800, 600);
-        // Подключаем тёмную тему
+        // --- ComboBox для выбора темы ---
+        ComboBox<String> themeCombo = new ComboBox<>();
+        themeCombo.getItems().addAll("Тёмная", "Светлая");
+        themeCombo.setValue("Тёмная");
+        themeCombo.setStyle("-fx-font-size: 14px; -fx-background-radius: 8; -fx-padding: 2 10 2 10;");
+
+        HBox topBar = new HBox(themeCombo);
+        topBar.setAlignment(Pos.CENTER_RIGHT);
+        topBar.setPadding(new Insets(8, 16, 8, 8));
+        topBar.setSpacing(10);
+        topBar.setStyle("-fx-background-color: #222;"); // по умолчанию тёмная
+
+        BorderPane root = new BorderPane();
+        root.setTop(topBar);
+        root.setCenter(tabPane);
+
+        Scene scene = new Scene(root, 800, 600);
+        // По умолчанию тёмная тема
         scene.getStylesheets().add(getClass().getResource("/dark-theme.css").toExternalForm());
+
+        themeCombo.setOnAction(e -> {
+            scene.getStylesheets().clear();
+            if (themeCombo.getValue().equals("Тёмная")) {
+                scene.getStylesheets().add(getClass().getResource("/dark-theme.css").toExternalForm());
+                topBar.setStyle("-fx-background-color: #222;");
+            } else {
+                scene.getStylesheets().add(getClass().getResource("/light-theme.css").toExternalForm());
+                topBar.setStyle("-fx-background-color: #f4f4f4;");
+            }
+        });
+
         primaryStage.setScene(scene);
         primaryStage.show();
     }
@@ -927,7 +957,8 @@ public class MaritimeBookingApp extends Application {
         formWrapper.setFillWidth(true);
         ScrollPane scrollPane = new ScrollPane(formWrapper);
         scrollPane.setFitToWidth(true);
-        scrollPane.setStyle("-fx-background: #222;");
+        // scrollPane.setStyle("-fx-background: #222;"); // убираем, чтобы фон был как у
+        // темы
         vbox.getChildren().clear();
         vbox.getChildren().addAll(title, scrollPane, table);
         vbox.setAlignment(Pos.CENTER);

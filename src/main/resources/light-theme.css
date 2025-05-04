@@ -1,0 +1,45 @@
+root,
+.root {
+  -fx-base: #f4f4f4;
+  -fx-background: #f4f4f4;
+  -fx-background-color: #f4f4f4;
+  -fx-text-fill: #222;
+}
+
+.label {
+  -fx-text-fill: #222;
+}
+
+.text-field,
+.combo-box,
+.combo-box-base,
+.button,
+.table-view,
+.tab-pane,
+.tab,
+.scroll-pane,
+.check-box {
+  -fx-background-color: #fff;
+  -fx-text-fill: #222;
+  -fx-border-color: #bbb;
+  -fx-border-radius: 8;
+  -fx-background-radius: 8;
+}
+
+.button {
+  -fx-background-color: #2196f3;
+  -fx-text-fill: #fff;
+}
+
+.tab-pane .tab-header-background {
+  -fx-background-color: #e0e0e0;
+}
+
+.table-view {
+  -fx-background-color: #fff;
+  -fx-table-cell-border-color: #bbb;
+}
+
+.scroll-pane {
+  -fx-background: #f4f4f4;
+}
