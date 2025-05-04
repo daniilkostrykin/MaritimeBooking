@@ -127,7 +127,7 @@ public class MaritimeBookingApp extends Application {
         // По умолчанию тёмная тема
         scene.getStylesheets().add(getClass().getResource("/dark-theme.css").toExternalForm());
 
-        themeCombo.setOnAction(e -> {
+        themeCombo.setOnAction(_ -> {
             scene.getStylesheets().clear();
             if (themeCombo.getValue().equals("Тёмная")) {
                 scene.getStylesheets().add(getClass().getResource("/dark-theme.css").toExternalForm());
