@@ -922,8 +922,14 @@ public class MaritimeBookingApp extends Application {
                 paymentMethodCombo, mealTypeCombo, insuranceCheck, luggageField, purchaseDateField, addBtn);
         form.setAlignment(Pos.CENTER);
         form.setMaxWidth(350);
+        VBox formWrapper = new VBox(form);
+        formWrapper.setAlignment(Pos.CENTER);
+        formWrapper.setFillWidth(true);
+        ScrollPane scrollPane = new ScrollPane(formWrapper);
+        scrollPane.setFitToWidth(true);
+        scrollPane.setStyle("-fx-background: #222;");
         vbox.getChildren().clear();
-        vbox.getChildren().addAll(title, form, table);
+        vbox.getChildren().addAll(title, scrollPane, table);
         vbox.setAlignment(Pos.CENTER);
         return vbox;
     }
