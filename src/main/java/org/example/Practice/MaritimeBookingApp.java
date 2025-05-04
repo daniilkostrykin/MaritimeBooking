@@ -249,18 +249,24 @@ public class MaritimeBookingApp extends Application {
     }
 
     private VBox createTicketsForYearWithPriceTab() {
-        VBox vbox = new VBox(15);
-        vbox.setPadding(new Insets(20));
+        VBox vbox = new VBox(20);
+        vbox.setPadding(new Insets(30));
         vbox.setAlignment(Pos.CENTER);
 
-        // Фильтры
+        Label title = new Label("Билеты за год с ценой меньше");
+        title.setStyle("-fx-font-size: 20px; -fx-font-weight: bold;");
+
         TextField yearField = new TextField();
         yearField.setPromptText("Год (например, 2024)");
         TextField priceField = new TextField();
         priceField.setPromptText("Максимальная цена");
 
+        Label errorLabel = new Label("");
+        errorLabel.setStyle("-fx-text-fill: red; -fx-font-size: 12px;");
+
         Button filterBtn = new Button("Показать билеты");
-        filterBtn.setStyle("-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white;");
+        filterBtn.setStyle(
+                "-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white; -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
 
         TableView<Ticket> table = new TableView<>();
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
@@ -299,9 +305,13 @@ public class MaritimeBookingApp extends Application {
             }
         });
 
-        vbox.getChildren().addAll(
-                new Label("Фильтр по году и максимальной цене:"),
-                yearField, priceField, filterBtn, table);
+        VBox form = new VBox(10, yearField, priceField, errorLabel, filterBtn);
+        form.setAlignment(Pos.CENTER);
+        form.setMaxWidth(350);
+
+        vbox.getChildren().clear();
+        vbox.getChildren().addAll(title, form, table);
+        vbox.setAlignment(Pos.CENTER);
         return vbox;
     }
 
@@ -402,15 +412,19 @@ public class MaritimeBookingApp extends Application {
     }
 
     private VBox createTicketsByClientTab() {
-        VBox vbox = new VBox(15);
-        vbox.setPadding(new Insets(20));
+        VBox vbox = new VBox(20);
+        vbox.setPadding(new Insets(30));
         vbox.setAlignment(Pos.CENTER);
+
+        Label title = new Label("Билеты клиента");
+        title.setStyle("-fx-font-size: 20px; -fx-font-weight: bold;");
 
         Label label = new Label("Введите email клиента:");
         TextField emailField = new TextField();
         emailField.setPromptText("Email клиента");
         Button searchBtn = new Button("Показать билеты");
-        searchBtn.setStyle("-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white;");
+        searchBtn.setStyle(
+                "-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white; -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
 
         TableView<Ticket> table = new TableView<>();
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
@@ -455,21 +469,31 @@ public class MaritimeBookingApp extends Application {
             }
         });
 
-        vbox.getChildren().addAll(label, emailField, searchBtn, table);
+        VBox form = new VBox(10, label, emailField, searchBtn);
+        form.setAlignment(Pos.CENTER);
+        form.setMaxWidth(350);
+
+        vbox.getChildren().clear();
+        vbox.getChildren().addAll(title, form, table);
+        vbox.setAlignment(Pos.CENTER);
         return vbox;
     }
 
     private VBox createClientsByMealTab() {
-        VBox vbox = new VBox(15);
-        vbox.setPadding(new Insets(20));
+        VBox vbox = new VBox(20);
+        vbox.setPadding(new Insets(30));
         vbox.setAlignment(Pos.CENTER);
+
+        Label title = new Label("Клиенты по питанию");
+        title.setStyle("-fx-font-size: 20px; -fx-font-weight: bold;");
 
         Label label = new Label("Выберите тип питания:");
         ComboBox<String> mealTypeCombo = new ComboBox<>();
         mealTypeCombo.getItems().addAll("full_board", "breakfast", "half_board", "no_meals");
         mealTypeCombo.setPromptText("Тип питания");
         Button searchBtn = new Button("Показать клиентов");
-        searchBtn.setStyle("-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white;");
+        searchBtn.setStyle(
+                "-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white; -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
 
         TableView<ObservableList<String>> table = new TableView<>();
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
@@ -511,7 +535,13 @@ public class MaritimeBookingApp extends Application {
             }
         });
 
-        vbox.getChildren().addAll(label, mealTypeCombo, searchBtn, table);
+        VBox form = new VBox(10, label, mealTypeCombo, searchBtn);
+        form.setAlignment(Pos.CENTER);
+        form.setMaxWidth(350);
+
+        vbox.getChildren().clear();
+        vbox.getChildren().addAll(title, form, table);
+        vbox.setAlignment(Pos.CENTER);
         return vbox;
     }
 
@@ -579,9 +609,12 @@ public class MaritimeBookingApp extends Application {
     }
 
     private VBox createCompletedVoyagesTab() {
-        VBox vbox = new VBox(15);
-        vbox.setPadding(new Insets(20));
+        VBox vbox = new VBox(20);
+        vbox.setPadding(new Insets(30));
         vbox.setAlignment(Pos.CENTER);
+
+        Label title = new Label("Завершённые рейсы с BREAKFAST");
+        title.setStyle("-fx-font-size: 20px; -fx-font-weight: bold;");
 
         Label statusLabel = new Label("Выберите статус рейса:");
         ComboBox<String> statusCombo = new ComboBox<>();
@@ -594,7 +627,8 @@ public class MaritimeBookingApp extends Application {
         mealCombo.setPromptText("Тип питания");
 
         Button searchBtn = new Button("Показать рейсы");
-        searchBtn.setStyle("-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white;");
+        searchBtn.setStyle(
+                "-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white; -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
         TableView<ObservableList<String>> table = new TableView<>();
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         table.setPrefHeight(400);
@@ -636,19 +670,29 @@ public class MaritimeBookingApp extends Application {
                 showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить данные: " + ex.getMessage());
             }
         });
-        vbox.getChildren().addAll(statusLabel, statusCombo, mealLabel, mealCombo, searchBtn, table);
+        VBox form = new VBox(10, statusLabel, statusCombo, mealLabel, mealCombo, searchBtn);
+        form.setAlignment(Pos.CENTER);
+        form.setMaxWidth(350);
+        vbox.getChildren().clear();
+        vbox.getChildren().addAll(title, form, table);
+        vbox.setAlignment(Pos.CENTER);
         return vbox;
     }
 
     private VBox createInsuredTicketsFromCountryTab() {
-        VBox vbox = new VBox(15);
-        vbox.setPadding(new Insets(20));
+        VBox vbox = new VBox(20);
+        vbox.setPadding(new Insets(30));
         vbox.setAlignment(Pos.CENTER);
+
+        Label title = new Label("Билеты с страховкой из страны");
+        title.setStyle("-fx-font-size: 20px; -fx-font-weight: bold;");
+
         Label label = new Label("Введите страну (на англ.):");
         TextField countryField = new TextField();
         countryField.setPromptText("Страна");
         Button searchBtn = new Button("Показать билеты");
-        searchBtn.setStyle("-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white;");
+        searchBtn.setStyle(
+                "-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white; -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
         TableView<ObservableList<String>> table = new TableView<>();
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         table.setPrefHeight(400);
@@ -690,14 +734,23 @@ public class MaritimeBookingApp extends Application {
                 showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить данные: " + ex.getMessage());
             }
         });
-        vbox.getChildren().addAll(label, countryField, searchBtn, table);
+        VBox form = new VBox(10, label, countryField, searchBtn);
+        form.setAlignment(Pos.CENTER);
+        form.setMaxWidth(350);
+        vbox.getChildren().clear();
+        vbox.getChildren().addAll(title, form, table);
+        vbox.setAlignment(Pos.CENTER);
         return vbox;
     }
 
     private javafx.scene.Node createAddClientAndTicketTab() {
-        VBox vbox = new VBox(15);
-        vbox.setPadding(new Insets(20));
+        VBox vbox = new VBox(20);
+        vbox.setPadding(new Insets(30));
         vbox.setAlignment(Pos.CENTER);
+
+        Label title = new Label("Добавить клиента и билет");
+        title.setStyle("-fx-font-size: 20px; -fx-font-weight: bold;");
+
         Label label = new Label("Добавить клиента и билет:");
         TextField emailField = new TextField();
         emailField.setPromptText("Email");
@@ -731,7 +784,8 @@ public class MaritimeBookingApp extends Application {
         TextField purchaseDateField = new TextField();
         purchaseDateField.setPromptText("Дата покупки (YYYY-MM-DD)");
         Button addBtn = new Button("Добавить клиента и билет");
-        addBtn.setStyle("-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white;");
+        addBtn.setStyle(
+                "-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white; -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
         TableView<ObservableList<String>> table = new TableView<>();
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         table.setPrefHeight(250);
@@ -816,23 +870,33 @@ public class MaritimeBookingApp extends Application {
                 showAlert(Alert.AlertType.ERROR, "Ошибка", "Ошибка подключения: " + ex.getMessage());
             }
         });
-        vbox.getChildren().addAll(label, emailField, lastNameField, firstNameField, middleNameField, birthDateField,
+        VBox form = new VBox(10, label, emailField, lastNameField, firstNameField, middleNameField, birthDateField,
                 passportField, voyageIdField, vesselIdField, cabinIdField, priceField, paymentMethodField,
-                mealTypeCombo, insuranceCheck, luggageField, purchaseDateField, addBtn, table);
-        return wrapWithScroll(vbox);
+                mealTypeCombo, insuranceCheck, luggageField, purchaseDateField, addBtn);
+        form.setAlignment(Pos.CENTER);
+        form.setMaxWidth(350);
+        vbox.getChildren().clear();
+        vbox.getChildren().addAll(title, form, table);
+        vbox.setAlignment(Pos.CENTER);
+        return vbox;
     }
 
     private VBox createDeleteVoyageTab() {
-        VBox vbox = new VBox(15);
-        vbox.setPadding(new Insets(20));
+        VBox vbox = new VBox(20);
+        vbox.setPadding(new Insets(30));
         vbox.setAlignment(Pos.CENTER);
+
+        Label title = new Label("Удалить рейс и всё связанное");
+        title.setStyle("-fx-font-size: 20px; -fx-font-weight: bold;");
+
         Label label = new Label("Введите ID рейса и ID судна для удаления:");
         TextField voyageIdField = new TextField();
         voyageIdField.setPromptText("ID рейса");
         TextField vesselIdField = new TextField();
         vesselIdField.setPromptText("ID судна");
         Button deleteBtn = new Button("Удалить всё связанное");
-        deleteBtn.setStyle("-fx-font-weight: bold; -fx-background-color: #E53935; -fx-text-fill: white;");
+        deleteBtn.setStyle(
+                "-fx-font-weight: bold; -fx-background-color: #E53935; -fx-text-fill: white; -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
         TableView<ObservableList<String>> table = new TableView<>();
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         table.setPrefHeight(200);
@@ -887,14 +951,23 @@ public class MaritimeBookingApp extends Application {
                 showAlert(Alert.AlertType.ERROR, "Ошибка", "Ошибка подключения: " + ex.getMessage());
             }
         });
-        vbox.getChildren().addAll(label, voyageIdField, vesselIdField, deleteBtn, table);
+        VBox form = new VBox(10, label, voyageIdField, vesselIdField, deleteBtn);
+        form.setAlignment(Pos.CENTER);
+        form.setMaxWidth(350);
+        vbox.getChildren().clear();
+        vbox.getChildren().addAll(title, form, table);
+        vbox.setAlignment(Pos.CENTER);
         return vbox;
     }
 
     private javafx.scene.Node createLuggagePriceUpdateTab() {
-        VBox vbox = new VBox(15);
-        vbox.setPadding(new Insets(20));
+        VBox vbox = new VBox(20);
+        vbox.setPadding(new Insets(30));
         vbox.setAlignment(Pos.CENTER);
+
+        Label title = new Label("Корректировка цены багажа");
+        title.setStyle("-fx-font-size: 20px; -fx-font-weight: bold;");
+
         Label weightLabel = new Label("Минимальный вес багажа (кг):");
         TextField weightField = new TextField("15");
         weightField.setPromptText("Вес");
@@ -902,7 +975,8 @@ public class MaritimeBookingApp extends Application {
         TextField dateField = new TextField("2025-04-16");
         dateField.setPromptText("Дата");
         Button updateBtn = new Button("Обновить цены");
-        updateBtn.setStyle("-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white;");
+        updateBtn.setStyle(
+                "-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white; -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
         TableView<ObservableList<String>> table = new TableView<>();
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         table.setPrefHeight(300);
@@ -931,20 +1005,29 @@ public class MaritimeBookingApp extends Application {
                 showAlert(Alert.AlertType.ERROR, "Ошибка", "Ошибка обновления: " + ex.getMessage());
             }
         });
-        vbox.getChildren().addAll(weightLabel, weightField, dateLabel, dateField, updateBtn, table);
-        return wrapWithScroll(vbox);
+        VBox form = new VBox(10, weightLabel, weightField, dateLabel, dateField, updateBtn);
+        form.setAlignment(Pos.CENTER);
+        form.setMaxWidth(350);
+        vbox.getChildren().clear();
+        vbox.getChildren().addAll(title, form, table);
+        vbox.setAlignment(Pos.CENTER);
+        return vbox;
     }
 
     private VBox createVoyageRouteTab() {
-        VBox vbox = new VBox(15);
-        vbox.setPadding(new Insets(20));
+        VBox vbox = new VBox(20);
+        vbox.setPadding(new Insets(30));
         vbox.setAlignment(Pos.CENTER);
+
+        Label title = new Label("Маршрут рейса");
+        title.setStyle("-fx-font-size: 20px; -fx-font-weight: bold;");
 
         Label label = new Label("Введите ID рейса:");
         TextField voyageIdField = new TextField();
         voyageIdField.setPromptText("ID рейса");
         Button searchBtn = new Button("Показать маршрут");
-        searchBtn.setStyle("-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white;");
+        searchBtn.setStyle(
+                "-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white; -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
 
         TableView<ObservableList<String>> table = new TableView<>();
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
@@ -1058,20 +1141,29 @@ public class MaritimeBookingApp extends Application {
                 showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить маршрут: " + ex.getMessage());
             }
         });
-
-        vbox.getChildren().addAll(label, voyageIdField, searchBtn, table, routeLabel, routeTable);
+        VBox form = new VBox(10, label, voyageIdField, searchBtn);
+        form.setAlignment(Pos.CENTER);
+        form.setMaxWidth(350);
+        vbox.getChildren().clear();
+        vbox.getChildren().addAll(title, form, table, routeLabel, routeTable);
+        vbox.setAlignment(Pos.CENTER);
         return vbox;
     }
 
     private VBox createTicketSalesTab() {
-        VBox vbox = new VBox(15);
-        vbox.setPadding(new Insets(20));
+        VBox vbox = new VBox(20);
+        vbox.setPadding(new Insets(30));
         vbox.setAlignment(Pos.CENTER);
+
+        Label title = new Label("Продажи билетов 2024");
+        title.setStyle("-fx-font-size: 20px; -fx-font-weight: bold;");
+
         Label yearLabel = new Label("Введите год:");
         TextField yearField = new TextField("2024");
         yearField.setPromptText("Год");
         Button searchBtn = new Button("Показать продажи");
-        searchBtn.setStyle("-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white;");
+        searchBtn.setStyle(
+                "-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white; -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
         TableView<ObservableList<String>> table = new TableView<>();
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         table.setPrefHeight(400);
@@ -1139,16 +1231,27 @@ public class MaritimeBookingApp extends Application {
                 showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить данные: " + ex.getMessage());
             }
         });
-        vbox.getChildren().addAll(yearLabel, yearField, searchBtn, table);
+        VBox form = new VBox(10, yearLabel, yearField, searchBtn);
+        form.setAlignment(Pos.CENTER);
+        form.setMaxWidth(350);
+        vbox.getChildren().clear();
+        vbox.getChildren().addAll(title, form, table);
+        vbox.setAlignment(Pos.CENTER);
         return vbox;
     }
 
     private VBox createAvgCheckTab() {
-        VBox vbox = new VBox(15);
-        vbox.setPadding(new Insets(20));
+        VBox vbox = new VBox(20);
+        vbox.setPadding(new Insets(30));
         vbox.setAlignment(Pos.CENTER);
+
+        Label title = new Label("Средний чек по клиентам");
+        title.setStyle("-fx-font-size: 20px; -fx-font-weight: bold;");
+
+        Label label = new Label("Средний чек и количество билетов по клиентам:");
         Button searchBtn = new Button("Показать средний чек");
-        searchBtn.setStyle("-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white;");
+        searchBtn.setStyle(
+                "-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white; -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
         TableView<ObservableList<String>> table = new TableView<>();
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         table.setPrefHeight(400);
@@ -1186,16 +1289,27 @@ public class MaritimeBookingApp extends Application {
                 showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить данные: " + ex.getMessage());
             }
         });
-        vbox.getChildren().addAll(new Label("Средний чек и количество билетов по клиентам:"), searchBtn, table);
+        VBox form = new VBox(10, label, searchBtn);
+        form.setAlignment(Pos.CENTER);
+        form.setMaxWidth(350);
+        vbox.getChildren().clear();
+        vbox.getChildren().addAll(title, form, table);
+        vbox.setAlignment(Pos.CENTER);
         return vbox;
     }
 
     private VBox createTotalRevenueTab() {
-        VBox vbox = new VBox(15);
-        vbox.setPadding(new Insets(20));
+        VBox vbox = new VBox(20);
+        vbox.setPadding(new Insets(30));
         vbox.setAlignment(Pos.CENTER);
+
+        Label title = new Label("Выручка по маршрутам");
+        title.setStyle("-fx-font-size: 20px; -fx-font-weight: bold;");
+
+        Label label = new Label("Общая выручка по маршрутам:");
         Button searchBtn = new Button("Показать выручку");
-        searchBtn.setStyle("-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white;");
+        searchBtn.setStyle(
+                "-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white; -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
         TableView<ObservableList<String>> table = new TableView<>();
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         table.setPrefHeight(400);
@@ -1234,7 +1348,12 @@ public class MaritimeBookingApp extends Application {
                 showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить данные: " + ex.getMessage());
             }
         });
-        vbox.getChildren().addAll(new Label("Общая выручка по маршрутам:"), searchBtn, table);
+        VBox form = new VBox(10, label, searchBtn);
+        form.setAlignment(Pos.CENTER);
+        form.setMaxWidth(350);
+        vbox.getChildren().clear();
+        vbox.getChildren().addAll(title, form, table);
+        vbox.setAlignment(Pos.CENTER);
         return vbox;
     }
 
