@@ -66,11 +66,11 @@ public class MaritimeBookingApp extends Application {
         clientsByMealTab.setClosable(false);
         clientsByMealTab.setContent(createClientsByMealTab());
 
-        Tab completedVoyagesTab = new Tab("Завершённые рейсы с BREAKFAST");
+        Tab completedVoyagesTab = new Tab("Рейсы по статусу и питанию");
         completedVoyagesTab.setClosable(false);
         completedVoyagesTab.setContent(createCompletedVoyagesTab());
 
-        Tab insuredTicketsFromCountryTab = new Tab("Билеты с страховкой из страны");
+        Tab insuredTicketsFromCountryTab = new Tab("Билеты с страховкой по стране");
         insuredTicketsFromCountryTab.setClosable(false);
         insuredTicketsFromCountryTab.setContent(createInsuredTicketsFromCountryTab());
 
@@ -90,7 +90,7 @@ public class MaritimeBookingApp extends Application {
         voyageRouteTab.setClosable(false);
         voyageRouteTab.setContent(createVoyageRouteTab());
 
-        Tab ticketSalesTab = new Tab("Продажи билетов 2024");
+        Tab ticketSalesTab = new Tab("Продажи билетов");
         ticketSalesTab.setClosable(false);
         ticketSalesTab.setContent(createTicketSalesTab());
 
@@ -119,33 +119,33 @@ public class MaritimeBookingApp extends Application {
         vbox.setPadding(new Insets(30));
         vbox.setAlignment(Pos.CENTER);
 
-        Label title = new Label("Buy Ticket");
+        Label title = new Label("Покупка билета");
         title.setStyle("-fx-font-size: 20px; -fx-font-weight: bold;");
 
         TextField emailField = new TextField();
-        emailField.setPromptText("Email");
+        emailField.setPromptText("Email клиента");
         TextField voyageIdField = new TextField();
-        voyageIdField.setPromptText("Voyage ID");
+        voyageIdField.setPromptText("ID рейса");
         TextField vesselIdField = new TextField();
-        vesselIdField.setPromptText("Vessel ID");
+        vesselIdField.setPromptText("ID судна");
         TextField cabinIdField = new TextField();
-        cabinIdField.setPromptText("Cabin ID");
+        cabinIdField.setPromptText("ID каюты");
         TextField priceField = new TextField();
-        priceField.setPromptText("Price");
+        priceField.setPromptText("Цена");
         TextField paymentMethodField = new TextField();
-        paymentMethodField.setPromptText("Payment Method");
+        paymentMethodField.setPromptText("Способ оплаты");
         TextField mealTypeField = new TextField();
-        mealTypeField.setPromptText("Meal Type");
-        CheckBox insuranceCheck = new CheckBox("Insurance");
+        mealTypeField.setPromptText("Тип питания");
+        CheckBox insuranceCheck = new CheckBox("Страховка");
         TextField luggageField = new TextField();
-        luggageField.setPromptText("Luggage Weight");
+        luggageField.setPromptText("Вес багажа");
         TextField purchaseDateField = new TextField();
-        purchaseDateField.setPromptText("Purchase Date (YYYY-MM-DD)");
+        purchaseDateField.setPromptText("Дата покупки (ГГГГ-ММ-ДД)");
 
         Label errorLabel = new Label("");
         errorLabel.setStyle("-fx-text-fill: red; -fx-font-size: 12px;");
 
-        Button buyTicketBtn = new Button("Buy Ticket");
+        Button buyTicketBtn = new Button("Купить билет");
         buyTicketBtn.setStyle(
                 "-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white; -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
 
@@ -1155,7 +1155,7 @@ public class MaritimeBookingApp extends Application {
         vbox.setPadding(new Insets(30));
         vbox.setAlignment(Pos.CENTER);
 
-        Label title = new Label("Продажи билетов 2024");
+        Label title = new Label("Продажи билетов");
         title.setStyle("-fx-font-size: 20px; -fx-font-weight: bold;");
 
         Label yearLabel = new Label("Введите год:");
