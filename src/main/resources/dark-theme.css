@@ -144,17 +144,72 @@
   -fx-background-color: #7b68ee;
 }
 
+/* Исправленные стили для меню - более радикальный подход */
 .menu-bar {
-  background-color: #2a2a2a;
-  -fx-background-color: #2a2a2a;
+  background-color: #1a1a1a;
+  -fx-background-color: #1a1a1a;
 }
 
-.menu-item {
-  background-color: #2a2a2a;
-  -fx-background-color: #2a2a2a;
+/* Убираем черный фон с пунктов меню */
+.menu-bar > .container > .menu-button,
+.menu-bar > .container > .menu-button > .label,
+.menu-item,
+.menu-item > .label,
+.context-menu,
+.menu,
+.menu-button,
+.menu-button > .label {
+  -fx-background-color: transparent;
+  background-color: transparent;
+  -fx-text-fill: #f0f0f0;
+  color: #f0f0f0;
 }
 
-.menu-item:hover {
-  background-color: #4a4191;
+/* Стили при наведении */
+.menu-bar > .container > .menu-button:hover,
+.menu-bar > .container > .menu-button:showing,
+.menu-bar > .container > .menu-button:focused {
+  -fx-background-color: #2c2c2c;
+  background-color: #2c2c2c;
+}
+
+/* Стили для контекстного меню */
+.context-menu {
+  -fx-background-color: #212121;
+  background-color: #212121;
+  -fx-border-color: #333333;
+  border-color: #333333;
+  -fx-border-width: 1px;
+  border-width: 1px;
+  -fx-effect: dropshadow(three-pass-box, rgba(0, 0, 0, 0.5), 5, 0, 0, 2);
+}
+
+/* Стили для пунктов в выпадающем меню */
+.menu-item:hover,
+.menu-item:focused,
+.menu-item:selected {
   -fx-background-color: #4a4191;
+  background-color: #4a4191;
+  -fx-text-fill: #ffffff;
+  color: #ffffff;
+}
+
+/* Стиль для активного/выбранного пункта меню с галочкой */
+.check-menu-item:checked > .check-mark {
+  -fx-background-color: #7b68ee;
+  background-color: #7b68ee;
+}
+
+/* Решение для галочек в меню */
+.radio-menu-item:checked > .radio,
+.check-menu-item:checked > .check {
+  -fx-background-color: #7b68ee;
+  background-color: #7b68ee;
+}
+
+/* Фон области выбора в check-menu-item */
+.check-menu-item > .left-container > .check,
+.radio-menu-item > .left-container > .radio {
+  -fx-background-color: transparent;
+  background-color: transparent;
 }
