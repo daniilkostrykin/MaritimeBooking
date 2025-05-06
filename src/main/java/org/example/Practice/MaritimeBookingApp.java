@@ -42,6 +42,10 @@ public class MaritimeBookingApp extends Application {
 
         TabPane tabPane = new TabPane();
 
+        tabPane.setTabDragPolicy(TabPane.TabDragPolicy.REORDER);
+
+        tabPane.setStyle("-fx-tab-min-width: 100px; -fx-tab-max-width: 200px; -fx-tab-min-height: 30px;");
+
         Tab universalTab = new Tab("Таблицы");
         universalTab.setClosable(false);
         universalTab.setContent(createUniversalTableTab());
@@ -107,25 +111,21 @@ public class MaritimeBookingApp extends Application {
                 addClientAndTicketTab, deleteVoyageTab, luggagePriceUpdateTab, voyageRouteTab, ticketSalesTab,
                 avgCheckTab, totalRevenueTab);
 
-        // --- ComboBox для выбора темы ---
         ComboBox<String> themeCombo = new ComboBox<>();
         themeCombo.getItems().addAll("Тёмная", "Светлая");
         themeCombo.setValue("Тёмная");
-        // themeCombo.setStyle("-fx-font-size: 14px; -fx-background-radius: 8;
-        // -fx-padding: 2 10 2 10;");
 
         HBox topBar = new HBox(themeCombo);
         topBar.setAlignment(Pos.CENTER_RIGHT);
         topBar.setPadding(new Insets(8, 16, 8, 8));
         topBar.setSpacing(10);
-        topBar.setStyle("-fx-background-color: #222;"); // по умолчанию тёмная
+        topBar.setStyle("-fx-background-color: #222;");
 
         BorderPane root = new BorderPane();
         root.setTop(topBar);
         root.setCenter(tabPane);
 
         Scene scene = new Scene(root, 800, 600);
-        // По умолчанию тёмная тема
         scene.getStylesheets().add(getClass().getResource("/dark-theme.css").toExternalForm());
 
         themeCombo.setOnAction(_ -> {
@@ -151,21 +151,17 @@ public class MaritimeBookingApp extends Application {
         Label title = new Label("Покупка билета");
         title.setStyle("-fx-font-size: 20px; -fx-font-weight: bold;");
 
-        // Email field remains as TextField
         TextField emailField = new TextField();
         emailField.setPromptText("Email клиента");
 
-        // ComboBox for voyages
         Label voyageLabel = new Label("Выберите рейс:");
         ComboBox<String> voyageCombo = new ComboBox<>();
         voyageCombo.setPromptText("ID рейса");
 
-        // ComboBox for vessels
         Label vesselLabel = new Label("Выберите судно:");
         ComboBox<String> vesselCombo = new ComboBox<>();
         vesselCombo.setPromptText("IMO судна");
 
-        // ComboBox for cabins
         Label cabinLabel = new Label("Выберите каюту:");
         ComboBox<String> cabinCombo = new ComboBox<>();
         cabinCombo.setPromptText("ID каюты");
@@ -173,12 +169,10 @@ public class MaritimeBookingApp extends Application {
         TextField priceField = new TextField();
         priceField.setPromptText("Цена");
 
-        // ComboBox for payment method
         ComboBox<String> paymentMethodCombo = new ComboBox<>();
         paymentMethodCombo.getItems().addAll("card", "cash");
         paymentMethodCombo.setPromptText("Способ оплаты");
 
-        // ComboBox for meal type
         ComboBox<String> mealTypeCombo = new ComboBox<>();
         mealTypeCombo.getItems().addAll("no_meals", "breakfast", "half_board", "full_board", "all_inclusive",
                 "ultra_all_inclusive");
@@ -193,23 +187,19 @@ public class MaritimeBookingApp extends Application {
         Label errorLabel = new Label("");
         errorLabel.setStyle("-fx-text-fill: red; -fx-font-size: 12px;");
 
-        // Load data for ComboBoxes
         try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
-            // Load voyages
             var rs = connection.createStatement().executeQuery(
                     "SELECT id, vessel_id FROM maritime_booking.voyages WHERE status = 'active'");
             while (rs.next()) {
                 voyageCombo.getItems().add(rs.getString("id") + " (IMO: " + rs.getString("vessel_id") + ")");
             }
 
-            // Load vessels
             rs = connection.createStatement().executeQuery(
                     "SELECT imo, name FROM maritime_booking.vessels");
             while (rs.next()) {
                 vesselCombo.getItems().add(rs.getString("imo") + " (" + rs.getString("name") + ")");
             }
 
-            // Load cabins
             rs = connection.createStatement().executeQuery(
                     "SELECT id, vessel_id, category, capacity, window_view FROM maritime_booking.cabins");
             while (rs.next()) {
@@ -222,7 +212,6 @@ public class MaritimeBookingApp extends Application {
             showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить данные: " + e.getMessage());
         }
 
-        // Add vessel filter when voyage is selected
         voyageCombo.setOnAction(_ -> {
             if (voyageCombo.getValue() != null) {
                 String vesselId = voyageCombo.getValue().split("IMO: ")[1].replace(")", "");
@@ -233,7 +222,6 @@ public class MaritimeBookingApp extends Application {
             }
         });
 
-        // Filter cabins when vessel is selected
         vesselCombo.setOnAction(e -> {
             if (vesselCombo.getValue() != null) {
                 String vesselId = vesselCombo.getValue().split(" ")[0];
@@ -388,12 +376,8 @@ public class MaritimeBookingApp extends Application {
         errorLabel.setStyle("-fx-text-fill: red; -fx-font-size: 12px;");
 
         Button filterBtn = new Button("Показать билеты");
-        // filterBtn.setStyle(
-        // "-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white;
-        // -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
 
         TableView<ObservableList<String>> table = new TableView<>();
-        // table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         table.setPrefHeight(400);
 
         TableColumn<ObservableList<String>, String> idCol = new TableColumn<>("ID");
@@ -465,9 +449,6 @@ public class MaritimeBookingApp extends Application {
         errorLabel.setStyle("-fx-text-fill: red; -fx-font-size: 12px;");
 
         Button addClientBtn = new Button("Добавить клиента");
-        // addClientBtn.setStyle(
-        // "-fx-font-weight: bold; -fx-background-color: #2196F3; -fx-text-fill: white;
-        // -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
 
         addClientBtn.setOnAction(_ -> {
             errorLabel.setText("");
@@ -503,7 +484,6 @@ public class MaritimeBookingApp extends Application {
                 birthDateField.setStyle("-fx-border-color: red;");
             } else
                 birthDateField.setStyle("");
-            // middleName не обязательное
             if (!valid) {
                 errorLabel.setText(errors.toString());
                 return;
@@ -549,7 +529,6 @@ public class MaritimeBookingApp extends Application {
         ComboBox<String> emailCombo = new ComboBox<>();
         emailCombo.setPromptText("Email клиента");
 
-        // Load client emails from database
         try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
             var rs = connection.createStatement().executeQuery(
                     "SELECT email, first_name, last_name FROM maritime_booking.customers ORDER BY last_name, first_name");
@@ -623,12 +602,8 @@ public class MaritimeBookingApp extends Application {
         mealTypeCombo.getItems().addAll("full_board", "breakfast", "half_board", "no_meals");
         mealTypeCombo.setPromptText("Тип питания");
         Button searchBtn = new Button("Показать клиентов");
-        // searchBtn.setStyle(
-        // "-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white;
-        // -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
 
         TableView<ObservableList<String>> table = new TableView<>();
-        // table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         table.setPrefHeight(400);
 
         TableColumn<ObservableList<String>, String> emailCol = new TableColumn<>("Email");
@@ -759,11 +734,7 @@ public class MaritimeBookingApp extends Application {
         mealCombo.setPromptText("Тип питания");
 
         Button searchBtn = new Button("Показать рейсы");
-        // searchBtn.setStyle(
-        // "-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white;
-        // -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
         TableView<ObservableList<String>> table = new TableView<>();
-        // table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         table.setPrefHeight(400);
         TableColumn<ObservableList<String>, String> idCol = new TableColumn<>("ID");
         idCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().get(0)));
@@ -824,7 +795,6 @@ public class MaritimeBookingApp extends Application {
         ComboBox<String> countryCombo = new ComboBox<>();
         countryCombo.setPromptText("Страна");
 
-        // Load countries from database
         try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
             var rs = connection.createStatement().executeQuery(
                     "SELECT DISTINCT country FROM maritime_booking.ports ORDER BY country");
@@ -911,7 +881,6 @@ public class MaritimeBookingApp extends Application {
         TextField passportField = new TextField();
         passportField.setPromptText("Серия паспорта (10 цифр)");
 
-        // Выпадающие списки для ID
         Label voyageLabel = new Label("Выберите рейс:");
         ComboBox<String> voyageCombo = new ComboBox<>();
         voyageCombo.setPromptText("ID рейса");
@@ -924,23 +893,19 @@ public class MaritimeBookingApp extends Application {
         ComboBox<String> cabinCombo = new ComboBox<>();
         cabinCombo.setPromptText("ID каюты");
 
-        // Загрузка данных в ComboBox
         try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
-            // Загрузка рейсов
             var rs = connection.createStatement().executeQuery(
                     "SELECT id, vessel_id FROM maritime_booking.voyages WHERE status = 'active'");
             while (rs.next()) {
                 voyageCombo.getItems().add(rs.getString("id") + " (IMO: " + rs.getString("vessel_id") + ")");
             }
 
-            // Загрузка судов
             rs = connection.createStatement().executeQuery(
                     "SELECT imo, name FROM maritime_booking.vessels");
             while (rs.next()) {
                 vesselCombo.getItems().add(rs.getString("imo") + " (" + rs.getString("name") + ")");
             }
 
-            // Загрузка кают
             rs = connection.createStatement().executeQuery(
                     "SELECT id, vessel_id, category, capacity, window_view FROM maritime_booking.cabins");
             while (rs.next()) {
@@ -953,7 +918,6 @@ public class MaritimeBookingApp extends Application {
             showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить данные: " + e.getMessage());
         }
 
-        // Билет
         TextField priceField = new TextField();
         priceField.setPromptText("Цена");
         ComboBox<String> paymentMethodCombo = new ComboBox<>();
@@ -969,13 +933,9 @@ public class MaritimeBookingApp extends Application {
         TextField purchaseDateField = new TextField();
         purchaseDateField.setPromptText("Дата покупки (ГГГГ-ММ-ДД)");
         Button addBtn = new Button("Добавить клиента и билет");
-        // addBtn.setStyle(
-        // "-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white;
-        // -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
         TableView<ObservableList<String>> table = new TableView<>();
         table.setPrefHeight(250);
         addBtn.setOnAction(_ -> {
-            // Валидация
             if (emailField.getText().isBlank()
                     || !emailField.getText().matches("^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$")) {
                 showAlert(Alert.AlertType.ERROR, "Ошибка", "Введите корректный email!");
@@ -1023,7 +983,6 @@ public class MaritimeBookingApp extends Application {
                 return;
             }
 
-            // Извлечение ID из выбранных значений
             String voyageId = voyageCombo.getValue().split(" ")[0];
             String vesselId = vesselCombo.getValue().split(" ")[0];
             String cabinId = cabinCombo.getValue().split(" ")[0];
@@ -1055,7 +1014,6 @@ public class MaritimeBookingApp extends Application {
                     ps2.executeUpdate();
                     connection.commit();
                     showAlert(Alert.AlertType.INFORMATION, "Успех", "Клиент и билет успешно добавлены!");
-                    // Показываем всю таблицу customers
                     showTable("SELECT * FROM maritime_booking.customers", table);
                 } catch (SQLException ex) {
                     connection.rollback();
@@ -1075,8 +1033,6 @@ public class MaritimeBookingApp extends Application {
         formWrapper.setFillWidth(true);
         ScrollPane scrollPane = new ScrollPane(formWrapper);
         scrollPane.setFitToWidth(true);
-        // scrollPane.setStyle("-fx-background: #222;"); // убираем, чтобы фон был как у
-        // темы
         vbox.getChildren().clear();
         vbox.getChildren().addAll(title, scrollPane, table);
         vbox.setAlignment(Pos.CENTER);
@@ -1093,19 +1049,15 @@ public class MaritimeBookingApp extends Application {
 
         Label label = new Label("Выберите рейс для удаления:");
 
-        // ComboBox for voyages
         Label voyageLabel = new Label("Выберите рейс:");
         ComboBox<String> voyageCombo = new ComboBox<>();
         voyageCombo.setPromptText("ID рейса");
 
-        // ComboBox for vessels
         Label vesselLabel = new Label("Выберите судно:");
         ComboBox<String> vesselCombo = new ComboBox<>();
         vesselCombo.setPromptText("IMO судна");
 
-        // Load data for ComboBoxes
         try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
-            // Load voyages
             var rs = connection.createStatement().executeQuery(
                     "SELECT v.id, v.vessel_id, vs.name " +
                             "FROM maritime_booking.voyages v " +
@@ -1115,7 +1067,6 @@ public class MaritimeBookingApp extends Application {
                         " - " + rs.getString("name") + ")");
             }
 
-            // Load vessels
             rs = connection.createStatement().executeQuery(
                     "SELECT imo, name FROM maritime_booking.vessels");
             while (rs.next()) {
@@ -1125,7 +1076,6 @@ public class MaritimeBookingApp extends Application {
             showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить данные: " + e.getMessage());
         }
 
-        // Add vessel filter when voyage is selected
         voyageCombo.setOnAction(e -> {
             if (voyageCombo.getValue() != null) {
                 String vesselId = voyageCombo.getValue().split("IMO: ")[1].split(" -")[0];
@@ -1176,11 +1126,9 @@ public class MaritimeBookingApp extends Application {
                     connection.commit();
                     showAlert(Alert.AlertType.INFORMATION, "Успех", "Рейс и всё связанное удалено!");
 
-                    // Clear selections
                     voyageCombo.setValue(null);
                     vesselCombo.setValue(null);
 
-                    // Refresh voyages list
                     voyageCombo.getItems().clear();
                     var rs = connection.createStatement().executeQuery(
                             "SELECT v.id, v.vessel_id, vs.name " +
@@ -1191,13 +1139,11 @@ public class MaritimeBookingApp extends Application {
                                 " - " + rs.getString("name") + ")");
                     }
 
-                    // Show updated voyages table
                     showTable("SELECT * FROM maritime_booking.voyages", table);
                 } catch (SQLException ex) {
                     connection.rollback();
                     showAlert(Alert.AlertType.ERROR, "Ошибка", "Ошибка при удалении: " + ex.getMessage());
                 }
-                // Проверка, что удалено
                 ObservableList<ObservableList<String>> data = FXCollections.observableArrayList();
                 String sqlCheck = "SELECT * FROM maritime_booking.voyages WHERE id = ? AND vessel_id = ?";
                 var psCheck = connection.prepareStatement(sqlCheck);
@@ -1240,11 +1186,7 @@ public class MaritimeBookingApp extends Application {
         TextField dateField = new TextField();
         dateField.setPromptText("Дата");
         Button updateBtn = new Button("Обновить цены");
-        // updateBtn.setStyle(
-        // "-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white;
-        // -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
         TableView<ObservableList<String>> table = new TableView<>();
-        // table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         table.setPrefHeight(300);
         updateBtn.setOnAction(_ -> {
             String minWeight = weightField.getText().trim();
@@ -1264,7 +1206,6 @@ public class MaritimeBookingApp extends Application {
                 ps.setString(2, date);
                 ps.setDouble(3, Double.parseDouble(minWeight));
                 ps.executeUpdate();
-                // Показываем всю таблицу tickets
                 showTable("SELECT * FROM maritime_booking.tickets", table);
                 showAlert(Alert.AlertType.INFORMATION, "Успех", "Цены обновлены!");
             } catch (SQLException ex) {
@@ -1292,7 +1233,6 @@ public class MaritimeBookingApp extends Application {
         ComboBox<String> voyageCombo = new ComboBox<>();
         voyageCombo.setPromptText("Рейс");
 
-        // Load voyages from database
         try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
             String sql = "SELECT v.id, v.vessel_id, vs.name as vessel_name, v.status " +
                     "FROM maritime_booking.voyages v " +
@@ -1316,7 +1256,6 @@ public class MaritimeBookingApp extends Application {
         TableView<ObservableList<String>> table = new TableView<>();
         table.setPrefHeight(400);
 
-        // Основная таблица (все поля)
         String[] columnNames = {
                 "ID рейса", "ID судна", "Название судна", "Статус рейса", "№ остановки",
                 "Код порта отправления", "Порт отправления", "Город отправления", "Страна отправления",
@@ -1331,7 +1270,6 @@ public class MaritimeBookingApp extends Application {
             table.getColumns().add(col);
         }
 
-        // Дополнительная таблица маршрута по городам
         Label routeLabel = new Label("Маршрут по городам:");
         TableView<ObservableList<String>> routeTable = new TableView<>();
         routeTable.setPrefHeight(200);
@@ -1400,7 +1338,6 @@ public class MaritimeBookingApp extends Application {
                 showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить данные: " + ex.getMessage());
             }
 
-            // Загружаем маршрут по городам
             ObservableList<ObservableList<String>> routeData = FXCollections.observableArrayList();
             try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
                 String sql = "SELECT vs.stop_number, dp.city AS departure_city, ap.city AS arrival_city\n" +
@@ -1446,11 +1383,7 @@ public class MaritimeBookingApp extends Application {
         TextField yearField = new TextField("2024");
         yearField.setPromptText("Год");
         Button searchBtn = new Button("Показать продажи");
-        // searchBtn.setStyle(
-        // "-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white;
-        // -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
         TableView<ObservableList<String>> table = new TableView<>();
-        // table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         table.setPrefHeight(400);
         TableColumn<ObservableList<String>, String> monthCol = new TableColumn<>("Месяц");
         monthCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().get(0)));
@@ -1535,11 +1468,7 @@ public class MaritimeBookingApp extends Application {
 
         Label label = new Label("Средний чек и количество билетов по клиентам:");
         Button searchBtn = new Button("Показать средний чек");
-        // searchBtn.setStyle(
-        // "-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white;
-        // -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
         TableView<ObservableList<String>> table = new TableView<>();
-        // table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         table.setPrefHeight(400);
         TableColumn<ObservableList<String>, String> emailCol = new TableColumn<>("Email");
         emailCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().get(0)));
@@ -1594,11 +1523,7 @@ public class MaritimeBookingApp extends Application {
 
         Label label = new Label("Общая выручка по маршрутам:");
         Button searchBtn = new Button("Показать выручку");
-        // searchBtn.setStyle(
-        // "-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white;
-        // -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
         TableView<ObservableList<String>> table = new TableView<>();
-        // table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         table.setPrefHeight(400);
         TableColumn<ObservableList<String>, String> depCol = new TableColumn<>("Порт отправления");
         depCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().get(0)));

@@ -28,7 +28,6 @@ public class JDBCRunner {
 
     public static void checkDB() {
         try (Connection _ = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
-            // Проверка подключения
         } catch (SQLException e) {
             throw new RuntimeException("Нет базы данных! Проверьте имя базы или разверните локально резервную копию.",
                     e);

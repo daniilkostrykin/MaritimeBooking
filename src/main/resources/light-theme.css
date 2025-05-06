@@ -1,16 +1,12 @@
-/* Современная светлая тема для JavaFX */
 .root,
 root {
-  /* Светлый нейтральный фон с легким оттенком */
   background: #f8f9fb;
   -fx-base: #f8f9fb;
   background-color: #f8f9fb;
   -fx-background: #f8f9fb;
   -fx-background-color: #f8f9fb;
-  /* Темно-серый текст для контраста */
   color: #2d3748;
   -fx-text-fill: #2d3748;
-  /* Акцентный цвет - бирюзовый */
   -fx-accent: #38b2ac;
   -fx-focus-color: #38b2ac;
   -fx-faint-focus-color: #38b2ac44;
@@ -92,7 +88,6 @@ root {
 }
 
 .button {
-  /* Бирюзовый акцентный цвет для кнопок */
   background-color: #38b2ac;
   -fx-background-color: #38b2ac;
   color: white;
@@ -103,7 +98,6 @@ root {
   -fx-padding: 10 16 10 16;
   font-weight: bold;
   -fx-font-weight: bold;
-  /* Тонкая тень для объемности */
   -fx-effect: dropshadow(three-pass-box, rgba(0, 0, 0, 0.1), 4, 0, 0, 1);
   cursor: pointer;
   -fx-cursor: hand;
@@ -268,7 +262,6 @@ root {
   -fx-background-color: white;
 }
 
-/* Стили для меню */
 .menu-bar {
   background-color: #f7fafc;
   -fx-background-color: #f7fafc;
@@ -290,7 +283,6 @@ root {
   -fx-background-color: #edf2f7;
 }
 
-/* Индикаторы прогресса */
 .progress-bar .track {
   background-color: #edf2f7;
   -fx-background-color: #edf2f7;
