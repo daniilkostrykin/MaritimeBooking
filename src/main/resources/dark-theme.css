@@ -1,48 +1,160 @@
-/* Тёмная тема для JavaFX */
+/* Улучшенная тёмная тема для JavaFX */
 .root {
-  -fx-base: #232323;
-  -fx-background: #232323;
-  -fx-control-inner-background: #232323;
-  -fx-accent: #4caf50;
-  -fx-focus-color: #4caf50;
-  -fx-faint-focus-color: #4caf5044;
-  -fx-text-fill: #e0e0e0;
-  -fx-background-color: #232323;
+  /* Более глубокий темный фон */
+  background: #1a1a1a;
+  -fx-base: #1a1a1a;
+  -fx-background: #1a1a1a;
+  background-color: #1a1a1a;
+  -fx-background-color: #1a1a1a;
+  -fx-control-inner-background: #1a1a1a;
+  /* Акцентный цвет - темно-фиолетовый */
+  -fx-accent: #7b68ee;
+  -fx-focus-color: #7b68ee;
+  -fx-faint-focus-color: #7b68ee44;
+  /* Светлый текст для хорошей читаемости */
+  color: #f0f0f0;
+  -fx-text-fill: #f0f0f0;
 }
 
 .label,
-.text-field,
 .combo-box,
-.button,
 .table-view,
 .tab-pane,
 .tab,
 .check-box {
-  -fx-text-fill: #e0e0e0;
-  -fx-background-color: #232323;
+  color: #f0f0f0;
+  -fx-text-fill: #f0f0f0;
+  background-color: #1a1a1a;
+  -fx-background-color: #1a1a1a;
 }
 
 .text-field,
 .text-area {
-  -fx-background-color: #333333;
-  -fx-text-fill: #e0e0e0;
-  -fx-prompt-text-fill: #88ff88;
-  -fx-border-color: #4caf50;
-  -fx-border-width: 2;
-  -fx-border-radius: 6;
-  -fx-background-radius: 6;
+  /* Немного светлее фон для полей ввода */
+  background-color: #2a2a2a;
+  -fx-background-color: #2a2a2a;
+  color: #f0f0f0;
+  -fx-text-fill: #f0f0f0;
+  /* Светло-фиолетовый цвет подсказки */
+  -fx-prompt-text-fill: #b39ddb;
+  border-color: #7b68ee;
+  -fx-border-color: #7b68ee;
+  border-width: 1px;
+  -fx-border-width: 1;
+  border-radius: 4px;
+  -fx-border-radius: 4;
+  -fx-background-radius: 4;
 }
 
 .button {
-  -fx-background-color: #333333;
-  -fx-text-fill: #e0e0e0;
+  /* Акцентный цвет для кнопок */
+  background-color: #7b68ee;
+  -fx-background-color: #7b68ee;
+  color: #ffffff;
+  -fx-text-fill: #ffffff;
+  border-radius: 4px;
+  -fx-background-radius: 4;
+  padding: 8px 16px;
+  -fx-padding: 8 16 8 16;
+  font-weight: bold;
+  -fx-font-weight: bold;
+  cursor: pointer;
+  -fx-cursor: hand;
+  -fx-effect: dropshadow(three-pass-box, rgba(0, 0, 0, 0.2), 3, 0, 0, 1);
+}
+
+.button:hover {
+  /* Светлее при наведении */
+  background-color: #9784f0;
+  -fx-background-color: #9784f0;
+  -fx-effect: dropshadow(three-pass-box, rgba(0, 0, 0, 0.3), 5, 0, 0, 1);
+}
+
+.button:pressed {
+  /* Темнее при нажатии */
+  background-color: #6a5acd;
+  -fx-background-color: #6a5acd;
+  -fx-effect: dropshadow(three-pass-box, rgba(0, 0, 0, 0.2), 2, 0, 0, 0);
 }
 
 .table-view {
-  -fx-table-cell-border-color: #444444;
-  -fx-background-color: #232323;
+  -fx-table-cell-border-color: #333333;
+  background-color: #1a1a1a;
+  -fx-background-color: #1a1a1a;
+}
+
+.table-view .column-header,
+.table-view .column-header-background {
+  background-color: #2a2a2a;
+  -fx-background-color: #2a2a2a;
+  color: #f0f0f0;
+  -fx-text-fill: #f0f0f0;
+}
+
+.table-row-cell {
+  background-color: #1a1a1a;
+  -fx-background-color: #1a1a1a;
+  color: #f0f0f0;
+  -fx-text-fill: #f0f0f0;
+}
+
+.table-row-cell:odd {
+  background-color: #212121;
+  -fx-background-color: #212121;
+}
+
+.table-row-cell:selected {
+  background-color: #4a4191;
+  -fx-background-color: #4a4191;
 }
 
 .tab-pane .tab-header-background {
-  -fx-background-color: #232323;
+  background-color: #1a1a1a;
+  -fx-background-color: #1a1a1a;
+}
+
+.tab {
+  background-color: #2a2a2a;
+  -fx-background-color: #2a2a2a;
+}
+
+.tab:selected {
+  background-color: #3a3a3a;
+  -fx-background-color: #3a3a3a;
+  border-color: #7b68ee;
+  -fx-border-color: transparent transparent #7b68ee transparent;
+  border-width: 0 0 2 0;
+  -fx-border-width: 0 0 2 0;
+}
+
+.scroll-bar {
+  background-color: #1a1a1a;
+  -fx-background-color: #1a1a1a;
+}
+
+.scroll-bar .thumb {
+  background-color: #4a4191;
+  -fx-background-color: #4a4191;
+  border-radius: 10px;
+  -fx-background-radius: 10;
+}
+
+.scroll-bar .thumb:hover {
+  background-color: #7b68ee;
+  -fx-background-color: #7b68ee;
+}
+
+.menu-bar {
+  background-color: #2a2a2a;
+  -fx-background-color: #2a2a2a;
+}
+
+.menu-item {
+  background-color: #2a2a2a;
+  -fx-background-color: #2a2a2a;
+}
+
+.menu-item:hover {
+  background-color: #4a4191;
+  -fx-background-color: #4a4191;
 }

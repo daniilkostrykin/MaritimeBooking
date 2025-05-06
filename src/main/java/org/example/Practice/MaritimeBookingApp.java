@@ -111,7 +111,8 @@ public class MaritimeBookingApp extends Application {
         ComboBox<String> themeCombo = new ComboBox<>();
         themeCombo.getItems().addAll("Тёмная", "Светлая");
         themeCombo.setValue("Тёмная");
-        themeCombo.setStyle("-fx-font-size: 14px; -fx-background-radius: 8; -fx-padding: 2 10 2 10;");
+        // themeCombo.setStyle("-fx-font-size: 14px; -fx-background-radius: 8;
+        // -fx-padding: 2 10 2 10;");
 
         HBox topBar = new HBox(themeCombo);
         topBar.setAlignment(Pos.CENTER_RIGHT);
@@ -174,8 +175,9 @@ public class MaritimeBookingApp extends Application {
         errorLabel.setStyle("-fx-text-fill: red; -fx-font-size: 12px;");
 
         Button buyTicketBtn = new Button("Купить билет");
-        buyTicketBtn.setStyle(
-                "-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white; -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
+        // buyTicketBtn.setStyle(
+        // "-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white;
+        // -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
 
         buyTicketBtn.setOnAction(_ -> {
             errorLabel.setText("");
@@ -293,8 +295,9 @@ public class MaritimeBookingApp extends Application {
         errorLabel.setStyle("-fx-text-fill: red; -fx-font-size: 12px;");
 
         Button filterBtn = new Button("Показать билеты");
-        filterBtn.setStyle(
-                "-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white; -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
+        // filterBtn.setStyle(
+        // "-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white;
+        // -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
 
         TableView<ObservableList<String>> table = new TableView<>();
         // table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
@@ -369,8 +372,9 @@ public class MaritimeBookingApp extends Application {
         errorLabel.setStyle("-fx-text-fill: red; -fx-font-size: 12px;");
 
         Button addClientBtn = new Button("Добавить клиента");
-        addClientBtn.setStyle(
-                "-fx-font-weight: bold; -fx-background-color: #2196F3; -fx-text-fill: white; -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
+        // addClientBtn.setStyle(
+        // "-fx-font-weight: bold; -fx-background-color: #2196F3; -fx-text-fill: white;
+        // -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
 
         addClientBtn.setOnAction(_ -> {
             errorLabel.setText("");
@@ -452,8 +456,9 @@ public class MaritimeBookingApp extends Application {
         TextField emailField = new TextField();
         emailField.setPromptText("Email клиента");
         Button searchBtn = new Button("Показать билеты");
-        searchBtn.setStyle(
-                "-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white; -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
+        // searchBtn.setStyle(
+        // "-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white;
+        // -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
 
         TableView<ObservableList<String>> table = new TableView<>();
         // table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
@@ -521,8 +526,9 @@ public class MaritimeBookingApp extends Application {
         mealTypeCombo.getItems().addAll("full_board", "breakfast", "half_board", "no_meals");
         mealTypeCombo.setPromptText("Тип питания");
         Button searchBtn = new Button("Показать клиентов");
-        searchBtn.setStyle(
-                "-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white; -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
+        // searchBtn.setStyle(
+        // "-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white;
+        // -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
 
         TableView<ObservableList<String>> table = new TableView<>();
         // table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
@@ -656,8 +662,9 @@ public class MaritimeBookingApp extends Application {
         mealCombo.setPromptText("Тип питания");
 
         Button searchBtn = new Button("Показать рейсы");
-        searchBtn.setStyle(
-                "-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white; -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
+        // searchBtn.setStyle(
+        // "-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white;
+        // -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
         TableView<ObservableList<String>> table = new TableView<>();
         // table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         table.setPrefHeight(400);
@@ -720,8 +727,9 @@ public class MaritimeBookingApp extends Application {
         TextField countryField = new TextField();
         countryField.setPromptText("Страна");
         Button searchBtn = new Button("Показать билеты");
-        searchBtn.setStyle(
-                "-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white; -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
+        // searchBtn.setStyle(
+        // "-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white;
+        // -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
         TableView<ObservableList<String>> table = new TableView<>();
         // table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         table.setPrefHeight(400);
@@ -852,8 +860,9 @@ public class MaritimeBookingApp extends Application {
         TextField purchaseDateField = new TextField();
         purchaseDateField.setPromptText("Дата покупки (ГГГГ-ММ-ДД)");
         Button addBtn = new Button("Добавить клиента и билет");
-        addBtn.setStyle(
-                "-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white; -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
+        // addBtn.setStyle(
+        // "-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white;
+        // -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
         TableView<ObservableList<String>> table = new TableView<>();
         table.setPrefHeight(250);
         addBtn.setOnAction(_ -> {
@@ -1059,8 +1068,9 @@ public class MaritimeBookingApp extends Application {
         TextField dateField = new TextField("2025-04-16");
         dateField.setPromptText("Дата");
         Button updateBtn = new Button("Обновить цены");
-        updateBtn.setStyle(
-                "-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white; -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
+        // updateBtn.setStyle(
+        // "-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white;
+        // -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
         TableView<ObservableList<String>> table = new TableView<>();
         // table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         table.setPrefHeight(300);
@@ -1110,8 +1120,9 @@ public class MaritimeBookingApp extends Application {
         TextField voyageIdField = new TextField();
         voyageIdField.setPromptText("ID рейса");
         Button searchBtn = new Button("Показать маршрут");
-        searchBtn.setStyle(
-                "-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white; -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
+        // searchBtn.setStyle(
+        // "-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white;
+        // -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
 
         TableView<ObservableList<String>> table = new TableView<>();
         // table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
@@ -1246,8 +1257,9 @@ public class MaritimeBookingApp extends Application {
         TextField yearField = new TextField("2024");
         yearField.setPromptText("Год");
         Button searchBtn = new Button("Показать продажи");
-        searchBtn.setStyle(
-                "-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white; -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
+        // searchBtn.setStyle(
+        // "-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white;
+        // -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
         TableView<ObservableList<String>> table = new TableView<>();
         // table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         table.setPrefHeight(400);
@@ -1334,8 +1346,9 @@ public class MaritimeBookingApp extends Application {
 
         Label label = new Label("Средний чек и количество билетов по клиентам:");
         Button searchBtn = new Button("Показать средний чек");
-        searchBtn.setStyle(
-                "-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white; -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
+        // searchBtn.setStyle(
+        // "-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white;
+        // -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
         TableView<ObservableList<String>> table = new TableView<>();
         // table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         table.setPrefHeight(400);
@@ -1392,8 +1405,9 @@ public class MaritimeBookingApp extends Application {
 
         Label label = new Label("Общая выручка по маршрутам:");
         Button searchBtn = new Button("Показать выручку");
-        searchBtn.setStyle(
-                "-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white; -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
+        // searchBtn.setStyle(
+        // "-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white;
+        // -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
         TableView<ObservableList<String>> table = new TableView<>();
         // table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         table.setPrefHeight(400);
