@@ -151,20 +151,39 @@ public class MaritimeBookingApp extends Application {
         Label title = new Label("Покупка билета");
         title.setStyle("-fx-font-size: 20px; -fx-font-weight: bold;");
 
+        // Email field remains as TextField
         TextField emailField = new TextField();
         emailField.setPromptText("Email клиента");
-        TextField voyageIdField = new TextField();
-        voyageIdField.setPromptText("ID рейса");
-        TextField vesselIdField = new TextField();
-        vesselIdField.setPromptText("ID судна");
-        TextField cabinIdField = new TextField();
-        cabinIdField.setPromptText("ID каюты");
+
+        // ComboBox for voyages
+        Label voyageLabel = new Label("Выберите рейс:");
+        ComboBox<String> voyageCombo = new ComboBox<>();
+        voyageCombo.setPromptText("ID рейса");
+
+        // ComboBox for vessels
+        Label vesselLabel = new Label("Выберите судно:");
+        ComboBox<String> vesselCombo = new ComboBox<>();
+        vesselCombo.setPromptText("IMO судна");
+
+        // ComboBox for cabins
+        Label cabinLabel = new Label("Выберите каюту:");
+        ComboBox<String> cabinCombo = new ComboBox<>();
+        cabinCombo.setPromptText("ID каюты");
+
         TextField priceField = new TextField();
         priceField.setPromptText("Цена");
-        TextField paymentMethodField = new TextField();
-        paymentMethodField.setPromptText("Способ оплаты");
-        TextField mealTypeField = new TextField();
-        mealTypeField.setPromptText("Тип питания");
+
+        // ComboBox for payment method
+        ComboBox<String> paymentMethodCombo = new ComboBox<>();
+        paymentMethodCombo.getItems().addAll("card", "cash");
+        paymentMethodCombo.setPromptText("Способ оплаты");
+
+        // ComboBox for meal type
+        ComboBox<String> mealTypeCombo = new ComboBox<>();
+        mealTypeCombo.getItems().addAll("no_meals", "breakfast", "half_board", "full_board", "all_inclusive",
+                "ultra_all_inclusive");
+        mealTypeCombo.setPromptText("Тип питания");
+
         CheckBox insuranceCheck = new CheckBox("Страховка");
         TextField luggageField = new TextField();
         luggageField.setPromptText("Вес багажа");
@@ -174,93 +193,156 @@ public class MaritimeBookingApp extends Application {
         Label errorLabel = new Label("");
         errorLabel.setStyle("-fx-text-fill: red; -fx-font-size: 12px;");
 
+        // Load data for ComboBoxes
+        try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
+            // Load voyages
+            var rs = connection.createStatement().executeQuery(
+                    "SELECT id, vessel_id FROM maritime_booking.voyages WHERE status = 'active'");
+            while (rs.next()) {
+                voyageCombo.getItems().add(rs.getString("id") + " (IMO: " + rs.getString("vessel_id") + ")");
+            }
+
+            // Load vessels
+            rs = connection.createStatement().executeQuery(
+                    "SELECT imo, name FROM maritime_booking.vessels");
+            while (rs.next()) {
+                vesselCombo.getItems().add(rs.getString("imo") + " (" + rs.getString("name") + ")");
+            }
+
+            // Load cabins
+            rs = connection.createStatement().executeQuery(
+                    "SELECT id, vessel_id, category, capacity, window_view FROM maritime_booking.cabins");
+            while (rs.next()) {
+                cabinCombo.getItems().add(rs.getString("id") + " (IMO: " + rs.getString("vessel_id") +
+                        ", категория: " + rs.getString("category") +
+                        ", вместимость: " + rs.getString("capacity") +
+                        ", окно: " + (rs.getBoolean("window_view") ? "да" : "нет") + ")");
+            }
+        } catch (SQLException e) {
+            showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить данные: " + e.getMessage());
+        }
+
+        // Add vessel filter when voyage is selected
+        voyageCombo.setOnAction(_ -> {
+            if (voyageCombo.getValue() != null) {
+                String vesselId = voyageCombo.getValue().split("IMO: ")[1].replace(")", "");
+                vesselCombo.setValue(vesselCombo.getItems().stream()
+                        .filter(item -> item.startsWith(vesselId))
+                        .findFirst()
+                        .orElse(null));
+            }
+        });
+
+        // Filter cabins when vessel is selected
+        vesselCombo.setOnAction(e -> {
+            if (vesselCombo.getValue() != null) {
+                String vesselId = vesselCombo.getValue().split(" ")[0];
+                cabinCombo.setItems(FXCollections.observableArrayList(
+                        cabinCombo.getItems().stream()
+                                .filter(item -> item.contains("IMO: " + vesselId))
+                                .collect(java.util.stream.Collectors.toList())));
+            }
+        });
+
         Button buyTicketBtn = new Button("Купить билет");
-        // buyTicketBtn.setStyle(
-        // "-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white;
-        // -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
 
         buyTicketBtn.setOnAction(_ -> {
             errorLabel.setText("");
             boolean valid = true;
             StringBuilder errors = new StringBuilder();
+
             if (emailField.getText().isBlank()) {
                 valid = false;
                 errors.append("Email required. ");
                 emailField.setStyle("-fx-border-color: red;");
             } else
                 emailField.setStyle("");
-            if (voyageIdField.getText().isBlank() || !voyageIdField.getText().matches("\\d+")) {
+
+            if (voyageCombo.getValue() == null) {
                 valid = false;
-                errors.append("Voyage ID must be a number. ");
-                voyageIdField.setStyle("-fx-border-color: red;");
+                errors.append("Выберите рейс. ");
+                voyageCombo.setStyle("-fx-border-color: red;");
             } else
-                voyageIdField.setStyle("");
-            if (vesselIdField.getText().isBlank()) {
+                voyageCombo.setStyle("");
+
+            if (vesselCombo.getValue() == null) {
                 valid = false;
-                errors.append("Vessel ID required. ");
-                vesselIdField.setStyle("-fx-border-color: red;");
+                errors.append("Выберите судно. ");
+                vesselCombo.setStyle("-fx-border-color: red;");
             } else
-                vesselIdField.setStyle("");
-            if (cabinIdField.getText().isBlank() || !cabinIdField.getText().matches("\\d+")) {
+                vesselCombo.setStyle("");
+
+            if (cabinCombo.getValue() == null) {
                 valid = false;
-                errors.append("Cabin ID must be a number. ");
-                cabinIdField.setStyle("-fx-border-color: red;");
+                errors.append("Выберите каюту. ");
+                cabinCombo.setStyle("-fx-border-color: red;");
             } else
-                cabinIdField.setStyle("");
+                cabinCombo.setStyle("");
+
             if (priceField.getText().isBlank() || !priceField.getText().matches("\\d+(\\.\\d+)?")) {
                 valid = false;
                 errors.append("Price must be a number. ");
                 priceField.setStyle("-fx-border-color: red;");
             } else
                 priceField.setStyle("");
-            if (paymentMethodField.getText().isBlank()) {
+
+            if (paymentMethodCombo.getValue() == null) {
                 valid = false;
-                errors.append("Payment method required. ");
-                paymentMethodField.setStyle("-fx-border-color: red;");
+                errors.append("Выберите способ оплаты. ");
+                paymentMethodCombo.setStyle("-fx-border-color: red;");
             } else
-                paymentMethodField.setStyle("");
-            if (mealTypeField.getText().isBlank()) {
+                paymentMethodCombo.setStyle("");
+
+            if (mealTypeCombo.getValue() == null) {
                 valid = false;
-                errors.append("Meal type required. ");
-                mealTypeField.setStyle("-fx-border-color: red;");
+                errors.append("Выберите тип питания. ");
+                mealTypeCombo.setStyle("-fx-border-color: red;");
             } else
-                mealTypeField.setStyle("");
+                mealTypeCombo.setStyle("");
+
             if (luggageField.getText().isBlank() || !luggageField.getText().matches("\\d+(\\.\\d+)?")) {
                 valid = false;
                 errors.append("Luggage must be a number. ");
                 luggageField.setStyle("-fx-border-color: red;");
             } else
                 luggageField.setStyle("");
+
             if (purchaseDateField.getText().isBlank() || !purchaseDateField.getText().matches("\\d{4}-\\d{2}-\\d{2}")) {
                 valid = false;
                 errors.append("Date must be YYYY-MM-DD. ");
                 purchaseDateField.setStyle("-fx-border-color: red;");
             } else
                 purchaseDateField.setStyle("");
+
             if (!valid) {
                 errorLabel.setText(errors.toString());
                 return;
             }
+
             try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
+                String voyageId = voyageCombo.getValue().split(" ")[0];
+                String vesselId = vesselCombo.getValue().split(" ")[0];
+                String cabinId = cabinCombo.getValue().split(" ")[0];
+
                 buyTicket(connection,
                         emailField.getText(),
-                        Integer.parseInt(voyageIdField.getText()),
-                        vesselIdField.getText(),
-                        Integer.parseInt(cabinIdField.getText()),
+                        Integer.parseInt(voyageId),
+                        vesselId,
+                        Integer.parseInt(cabinId),
                         Double.parseDouble(priceField.getText()),
-                        paymentMethodField.getText(),
-                        mealTypeField.getText(),
+                        paymentMethodCombo.getValue(),
+                        mealTypeCombo.getValue(),
                         insuranceCheck.isSelected(),
                         Double.parseDouble(luggageField.getText()),
                         purchaseDateField.getText());
                 showAlert(Alert.AlertType.INFORMATION, "Success", "Ticket purchased successfully!");
                 emailField.clear();
-                voyageIdField.clear();
-                vesselIdField.clear();
-                cabinIdField.clear();
+                voyageCombo.setValue(null);
+                vesselCombo.setValue(null);
+                cabinCombo.setValue(null);
                 priceField.clear();
-                paymentMethodField.clear();
-                mealTypeField.clear();
+                paymentMethodCombo.setValue(null);
+                mealTypeCombo.setValue(null);
                 insuranceCheck.setSelected(false);
                 luggageField.clear();
                 purchaseDateField.clear();
@@ -269,8 +351,19 @@ public class MaritimeBookingApp extends Application {
             }
         });
 
-        VBox form = new VBox(10, emailField, voyageIdField, vesselIdField, cabinIdField, priceField, paymentMethodField,
-                mealTypeField, insuranceCheck, luggageField, purchaseDateField, errorLabel, buyTicketBtn);
+        VBox form = new VBox(10,
+                emailField,
+                voyageLabel, voyageCombo,
+                vesselLabel, vesselCombo,
+                cabinLabel, cabinCombo,
+                priceField,
+                paymentMethodCombo,
+                mealTypeCombo,
+                insuranceCheck,
+                luggageField,
+                purchaseDateField,
+                errorLabel,
+                buyTicketBtn);
         form.setAlignment(Pos.CENTER);
         form.setMaxWidth(350);
         vbox.getChildren().addAll(title, form);
@@ -452,16 +545,24 @@ public class MaritimeBookingApp extends Application {
         Label title = new Label("Билеты клиента");
         title.setStyle("-fx-font-size: 20px; -fx-font-weight: bold;");
 
-        Label label = new Label("Введите email клиента:");
-        TextField emailField = new TextField();
-        emailField.setPromptText("Email клиента");
-        Button searchBtn = new Button("Показать билеты");
-        // searchBtn.setStyle(
-        // "-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white;
-        // -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
+        Label label = new Label("Выберите клиента:");
+        ComboBox<String> emailCombo = new ComboBox<>();
+        emailCombo.setPromptText("Email клиента");
 
+        // Load client emails from database
+        try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
+            var rs = connection.createStatement().executeQuery(
+                    "SELECT email, first_name, last_name FROM maritime_booking.customers ORDER BY last_name, first_name");
+            while (rs.next()) {
+                emailCombo.getItems().add(rs.getString("email") +
+                        " (" + rs.getString("last_name") + " " + rs.getString("first_name") + ")");
+            }
+        } catch (SQLException e) {
+            showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить список клиентов: " + e.getMessage());
+        }
+
+        Button searchBtn = new Button("Показать билеты");
         TableView<ObservableList<String>> table = new TableView<>();
-        // table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         table.setPrefHeight(400);
 
         TableColumn<ObservableList<String>, String> idCol = new TableColumn<>("ID");
@@ -474,16 +575,12 @@ public class MaritimeBookingApp extends Application {
         table.getColumns().add(priceCol);
 
         searchBtn.setOnAction(_ -> {
-            String email = emailField.getText().trim();
-            if (email.isEmpty()) {
-                showAlert(Alert.AlertType.ERROR, "Ошибка", "Введите email клиента!");
+            if (emailCombo.getValue() == null) {
+                showAlert(Alert.AlertType.ERROR, "Ошибка", "Выберите клиента!");
                 return;
             }
-            // Простая валидация email
-            if (!email.matches("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$")) {
-                showAlert(Alert.AlertType.ERROR, "Ошибка", "Некорректный формат email!");
-                return;
-            }
+
+            String email = emailCombo.getValue().split(" \\(")[0];
             ObservableList<ObservableList<String>> data = FXCollections.observableArrayList();
             try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
                 String sql = "SELECT tickets.id, tickets.price\n" +
@@ -503,7 +600,7 @@ public class MaritimeBookingApp extends Application {
             }
         });
 
-        VBox form = new VBox(10, label, emailField, searchBtn);
+        VBox form = new VBox(10, label, emailCombo, searchBtn);
         form.setAlignment(Pos.CENTER);
         form.setMaxWidth(350);
 
@@ -723,16 +820,25 @@ public class MaritimeBookingApp extends Application {
         Label title = new Label("Билеты с страховкой из страны");
         title.setStyle("-fx-font-size: 20px; -fx-font-weight: bold;");
 
-        Label label = new Label("Введите страну (на англ.):");
-        TextField countryField = new TextField();
-        countryField.setPromptText("Страна");
+        Label label = new Label("Выберите страну:");
+        ComboBox<String> countryCombo = new ComboBox<>();
+        countryCombo.setPromptText("Страна");
+
+        // Load countries from database
+        try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
+            var rs = connection.createStatement().executeQuery(
+                    "SELECT DISTINCT country FROM maritime_booking.ports ORDER BY country");
+            while (rs.next()) {
+                countryCombo.getItems().add(rs.getString("country"));
+            }
+        } catch (SQLException e) {
+            showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить список стран: " + e.getMessage());
+        }
+
         Button searchBtn = new Button("Показать билеты");
-        // searchBtn.setStyle(
-        // "-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white;
-        // -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
         TableView<ObservableList<String>> table = new TableView<>();
-        // table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         table.setPrefHeight(400);
+
         TableColumn<ObservableList<String>, String> idCol = new TableColumn<>("ID");
         idCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().get(0)));
         idCol.setPrefWidth(80);
@@ -741,12 +847,14 @@ public class MaritimeBookingApp extends Application {
         priceCol.setPrefWidth(120);
         table.getColumns().add(idCol);
         table.getColumns().add(priceCol);
+
         searchBtn.setOnAction(_ -> {
-            String country = countryField.getText().trim();
-            if (country.isEmpty()) {
-                showAlert(Alert.AlertType.ERROR, "Ошибка", "Введите страну!");
+            String country = countryCombo.getValue();
+            if (country == null) {
+                showAlert(Alert.AlertType.ERROR, "Ошибка", "Выберите страну!");
                 return;
             }
+
             ObservableList<ObservableList<String>> data = FXCollections.observableArrayList();
             try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
                 String sql = "SELECT tickets.id, tickets.price\n" +
@@ -771,7 +879,8 @@ public class MaritimeBookingApp extends Application {
                 showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить данные: " + ex.getMessage());
             }
         });
-        VBox form = new VBox(10, label, countryField, searchBtn);
+
+        VBox form = new VBox(10, label, countryCombo, searchBtn);
         form.setAlignment(Pos.CENTER);
         form.setMaxWidth(350);
         vbox.getChildren().clear();
@@ -982,24 +1091,67 @@ public class MaritimeBookingApp extends Application {
         Label title = new Label("Удалить рейс и всё связанное");
         title.setStyle("-fx-font-size: 20px; -fx-font-weight: bold;");
 
-        Label label = new Label("Введите ID рейса и ID судна для удаления:");
-        TextField voyageIdField = new TextField();
-        voyageIdField.setPromptText("ID рейса");
-        TextField vesselIdField = new TextField();
-        vesselIdField.setPromptText("ID судна");
+        Label label = new Label("Выберите рейс для удаления:");
+
+        // ComboBox for voyages
+        Label voyageLabel = new Label("Выберите рейс:");
+        ComboBox<String> voyageCombo = new ComboBox<>();
+        voyageCombo.setPromptText("ID рейса");
+
+        // ComboBox for vessels
+        Label vesselLabel = new Label("Выберите судно:");
+        ComboBox<String> vesselCombo = new ComboBox<>();
+        vesselCombo.setPromptText("IMO судна");
+
+        // Load data for ComboBoxes
+        try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
+            // Load voyages
+            var rs = connection.createStatement().executeQuery(
+                    "SELECT v.id, v.vessel_id, vs.name " +
+                            "FROM maritime_booking.voyages v " +
+                            "JOIN maritime_booking.vessels vs ON v.vessel_id = vs.imo");
+            while (rs.next()) {
+                voyageCombo.getItems().add(rs.getString("id") + " (IMO: " + rs.getString("vessel_id") +
+                        " - " + rs.getString("name") + ")");
+            }
+
+            // Load vessels
+            rs = connection.createStatement().executeQuery(
+                    "SELECT imo, name FROM maritime_booking.vessels");
+            while (rs.next()) {
+                vesselCombo.getItems().add(rs.getString("imo") + " (" + rs.getString("name") + ")");
+            }
+        } catch (SQLException e) {
+            showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить данные: " + e.getMessage());
+        }
+
+        // Add vessel filter when voyage is selected
+        voyageCombo.setOnAction(e -> {
+            if (voyageCombo.getValue() != null) {
+                String vesselId = voyageCombo.getValue().split("IMO: ")[1].split(" -")[0];
+                vesselCombo.setValue(vesselCombo.getItems().stream()
+                        .filter(item -> item.startsWith(vesselId))
+                        .findFirst()
+                        .orElse(null));
+            }
+        });
+
         Button deleteBtn = new Button("Удалить всё связанное");
         deleteBtn.setStyle(
                 "-fx-font-weight: bold; -fx-background-color: #E53935; -fx-text-fill: white; -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
+
         TableView<ObservableList<String>> table = new TableView<>();
-        // table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         table.setPrefHeight(200);
+
         deleteBtn.setOnAction(_ -> {
-            String voyageId = voyageIdField.getText().trim();
-            String vesselId = vesselIdField.getText().trim();
-            if (voyageId.isEmpty() || vesselId.isEmpty()) {
-                showAlert(Alert.AlertType.ERROR, "Ошибка", "Введите оба значения!");
+            if (voyageCombo.getValue() == null || vesselCombo.getValue() == null) {
+                showAlert(Alert.AlertType.ERROR, "Ошибка", "Выберите рейс и судно!");
                 return;
             }
+
+            String voyageId = voyageCombo.getValue().split(" ")[0];
+            String vesselId = vesselCombo.getValue().split(" ")[0];
+
             try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
                 connection.setAutoCommit(false);
                 try {
@@ -1008,19 +1160,38 @@ public class MaritimeBookingApp extends Application {
                     ps1.setInt(1, Integer.parseInt(voyageId));
                     ps1.setString(2, vesselId);
                     ps1.executeUpdate();
+
                     String sql2 = "DELETE FROM maritime_booking.voyage_stages WHERE voyage_id = ? AND vessel_id = ?";
                     var ps2 = connection.prepareStatement(sql2);
                     ps2.setInt(1, Integer.parseInt(voyageId));
                     ps2.setString(2, vesselId);
                     ps2.executeUpdate();
+
                     String sql3 = "DELETE FROM maritime_booking.voyages WHERE id = ? AND vessel_id = ?";
                     var ps3 = connection.prepareStatement(sql3);
                     ps3.setInt(1, Integer.parseInt(voyageId));
                     ps3.setString(2, vesselId);
                     ps3.executeUpdate();
+
                     connection.commit();
                     showAlert(Alert.AlertType.INFORMATION, "Успех", "Рейс и всё связанное удалено!");
-                    // Показываем всю таблицу voyages
+
+                    // Clear selections
+                    voyageCombo.setValue(null);
+                    vesselCombo.setValue(null);
+
+                    // Refresh voyages list
+                    voyageCombo.getItems().clear();
+                    var rs = connection.createStatement().executeQuery(
+                            "SELECT v.id, v.vessel_id, vs.name " +
+                                    "FROM maritime_booking.voyages v " +
+                                    "JOIN maritime_booking.vessels vs ON v.vessel_id = vs.imo");
+                    while (rs.next()) {
+                        voyageCombo.getItems().add(rs.getString("id") + " (IMO: " + rs.getString("vessel_id") +
+                                " - " + rs.getString("name") + ")");
+                    }
+
+                    // Show updated voyages table
                     showTable("SELECT * FROM maritime_booking.voyages", table);
                 } catch (SQLException ex) {
                     connection.rollback();
@@ -1044,7 +1215,8 @@ public class MaritimeBookingApp extends Application {
                 showAlert(Alert.AlertType.ERROR, "Ошибка", "Ошибка подключения: " + ex.getMessage());
             }
         });
-        VBox form = new VBox(10, label, voyageIdField, vesselIdField, deleteBtn);
+
+        VBox form = new VBox(10, label, voyageLabel, voyageCombo, vesselLabel, vesselCombo, deleteBtn);
         form.setAlignment(Pos.CENTER);
         form.setMaxWidth(350);
         vbox.getChildren().clear();
@@ -1062,10 +1234,10 @@ public class MaritimeBookingApp extends Application {
         title.setStyle("-fx-font-size: 20px; -fx-font-weight: bold;");
 
         Label weightLabel = new Label("Минимальный вес багажа (кг):");
-        TextField weightField = new TextField("15");
+        TextField weightField = new TextField();
         weightField.setPromptText("Вес");
         Label dateLabel = new Label("Дата до (YYYY-MM-DD):");
-        TextField dateField = new TextField("2025-04-16");
+        TextField dateField = new TextField();
         dateField.setPromptText("Дата");
         Button updateBtn = new Button("Обновить цены");
         // updateBtn.setStyle(
@@ -1116,16 +1288,32 @@ public class MaritimeBookingApp extends Application {
         Label title = new Label("Маршрут рейса");
         title.setStyle("-fx-font-size: 20px; -fx-font-weight: bold;");
 
-        Label label = new Label("Введите ID рейса:");
-        TextField voyageIdField = new TextField();
-        voyageIdField.setPromptText("ID рейса");
+        Label label = new Label("Выберите рейс:");
+        ComboBox<String> voyageCombo = new ComboBox<>();
+        voyageCombo.setPromptText("Рейс");
+
+        // Load voyages from database
+        try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
+            String sql = "SELECT v.id, v.vessel_id, vs.name as vessel_name, v.status " +
+                    "FROM maritime_booking.voyages v " +
+                    "JOIN maritime_booking.vessels vs ON v.vessel_id = vs.imo " +
+                    "ORDER BY v.id DESC";
+
+            var rs = connection.createStatement().executeQuery(sql);
+            while (rs.next()) {
+                voyageCombo.getItems().add(String.format("%s (Судно: %s - %s, Статус: %s)",
+                        rs.getString("id"),
+                        rs.getString("vessel_id"),
+                        rs.getString("vessel_name"),
+                        rs.getString("status")));
+            }
+        } catch (SQLException e) {
+            showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить список рейсов: " + e.getMessage());
+        }
+
         Button searchBtn = new Button("Показать маршрут");
-        // searchBtn.setStyle(
-        // "-fx-font-weight: bold; -fx-background-color: #4CAF50; -fx-text-fill: white;
-        // -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
 
         TableView<ObservableList<String>> table = new TableView<>();
-        // table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         table.setPrefHeight(400);
 
         // Основная таблица (все поля)
@@ -1146,7 +1334,6 @@ public class MaritimeBookingApp extends Application {
         // Дополнительная таблица маршрута по городам
         Label routeLabel = new Label("Маршрут по городам:");
         TableView<ObservableList<String>> routeTable = new TableView<>();
-        // routeTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         routeTable.setPrefHeight(200);
         TableColumn<ObservableList<String>, String> stopCol = new TableColumn<>("№ остановки");
         stopCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().get(0)));
@@ -1162,11 +1349,12 @@ public class MaritimeBookingApp extends Application {
         routeTable.getColumns().add(arrCityCol);
 
         searchBtn.setOnAction(_ -> {
-            String voyageId = voyageIdField.getText().trim();
-            if (voyageId.isEmpty() || !voyageId.matches("\\d+")) {
-                showAlert(Alert.AlertType.ERROR, "Ошибка", "Введите корректный ID рейса!");
+            if (voyageCombo.getValue() == null) {
+                showAlert(Alert.AlertType.ERROR, "Ошибка", "Выберите рейс!");
                 return;
             }
+
+            String voyageId = voyageCombo.getValue().split(" ")[0];
             ObservableList<ObservableList<String>> data = FXCollections.observableArrayList();
             try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
                 String sql = "SELECT v.id AS voyage_id, v.vessel_id, ves.name AS vessel_name, v.status AS voyage_status, "
@@ -1236,7 +1424,8 @@ public class MaritimeBookingApp extends Application {
                 showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить маршрут: " + ex.getMessage());
             }
         });
-        VBox form = new VBox(10, label, voyageIdField, searchBtn);
+
+        VBox form = new VBox(10, label, voyageCombo, searchBtn);
         form.setAlignment(Pos.CENTER);
         form.setMaxWidth(350);
         vbox.getChildren().clear();
