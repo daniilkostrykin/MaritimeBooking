@@ -73,7 +73,7 @@ public class MaritimeBookingApp extends Application {
         completedVoyagesTab.setClosable(false);
         completedVoyagesTab.setContent(createCompletedVoyagesTab());
 
-        Tab insuredTicketsFromCountryTab = new Tab("Билеты с страховкой по стране");
+        Tab insuredTicketsFromCountryTab = new Tab("Билеты со страховкой по стране");
         insuredTicketsFromCountryTab.setClosable(false);
         insuredTicketsFromCountryTab.setContent(createInsuredTicketsFromCountryTab());
 
@@ -537,7 +537,7 @@ public class MaritimeBookingApp extends Application {
         emailCombo.setPromptText("Email клиента");
 
         try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
-            var rs = JDBCManager.getCustomers(connection);
+            var rs = JDBCManager.getCustomersWithTickets(connection);
             while (rs.next()) {
                 emailCombo.getItems().add(rs.getString("email") +
                         " (" + rs.getString("last_name") + " " + rs.getString("first_name") + ")");
@@ -546,7 +546,6 @@ public class MaritimeBookingApp extends Application {
             showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить список клиентов: " + e.getMessage());
         }
 
-        Button searchBtn = new Button("Показать билеты");
         TableView<ObservableList<String>> table = new TableView<>();
         table.setPrefHeight(400);
 
@@ -559,23 +558,15 @@ public class MaritimeBookingApp extends Application {
         table.getColumns().add(idCol);
         table.getColumns().add(priceCol);
 
-        searchBtn.setOnAction(_ -> {
+        emailCombo.setOnAction(_ -> {
             if (emailCombo.getValue() == null) {
-                showAlert(Alert.AlertType.ERROR, "Ошибка", "Выберите клиента!");
                 return;
             }
 
             String email = emailCombo.getValue().split(" \\(")[0];
             ObservableList<ObservableList<String>> data = FXCollections.observableArrayList();
             try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
-                String sql = "SELECT tickets.id, tickets.price\n" +
-                        "FROM maritime_booking.tickets\n" +
-                        "JOIN maritime_booking.customers ON tickets.email = customers.email\n" +
-                        "WHERE customers.email = ?\n" +
-                        "ORDER BY tickets.id";
-                var ps = connection.prepareStatement(sql);
-                ps.setString(1, email);
-                var rs = ps.executeQuery();
+                var rs = JDBCManager.getCustomerTickets(connection, email);
                 while (rs.next()) {
                     data.add(FXCollections.observableArrayList(rs.getString("id"), rs.getString("price")));
                 }
@@ -585,7 +576,7 @@ public class MaritimeBookingApp extends Application {
             }
         });
 
-        VBox form = new VBox(10, label, emailCombo, searchBtn);
+        VBox form = new VBox(10, label, emailCombo);
         form.setAlignment(Pos.CENTER);
         form.setMaxWidth(350);
 
@@ -605,9 +596,9 @@ public class MaritimeBookingApp extends Application {
 
         Label label = new Label("Выберите тип питания:");
         ComboBox<String> mealTypeCombo = new ComboBox<>();
-        mealTypeCombo.getItems().addAll("full_board", "breakfast", "half_board", "no_meals");
+        mealTypeCombo.getItems().addAll("no_meals", "breakfast", "half_board", "full_board", "all_inclusive",
+                "ultra_all_inclusive");
         mealTypeCombo.setPromptText("Тип питания");
-        Button searchBtn = new Button("Показать клиентов");
 
         TableView<ObservableList<String>> table = new TableView<>();
         table.setPrefHeight(400);
@@ -621,10 +612,9 @@ public class MaritimeBookingApp extends Application {
         table.getColumns().add(emailCol);
         table.getColumns().add(nameCol);
 
-        searchBtn.setOnAction(_ -> {
+        mealTypeCombo.setOnAction(_ -> {
             String mealType = mealTypeCombo.getValue();
-            if (mealType == null || mealType.isBlank()) {
-                showAlert(Alert.AlertType.ERROR, "Ошибка", "Выберите тип питания!");
+            if (mealType == null) {
                 return;
             }
             ObservableList<ObservableList<String>> data = FXCollections.observableArrayList();
@@ -632,7 +622,8 @@ public class MaritimeBookingApp extends Application {
                 String sql = "SELECT customers.email, customers.first_name\n" +
                         "FROM maritime_booking.customers\n" +
                         "JOIN maritime_booking.tickets ON customers.email = tickets.email\n" +
-                        "WHERE tickets.meal_type = ?";
+                        "WHERE tickets.meal_type = ?\n" +
+                        "ORDER BY customers.last_name, customers.first_name";
                 var ps = connection.prepareStatement(sql);
                 ps.setString(1, mealType);
                 var rs = ps.executeQuery();
@@ -648,7 +639,7 @@ public class MaritimeBookingApp extends Application {
             }
         });
 
-        VBox form = new VBox(10, label, mealTypeCombo, searchBtn);
+        VBox form = new VBox(10, label, mealTypeCombo);
         form.setAlignment(Pos.CENTER);
         form.setMaxWidth(350);
 
@@ -726,20 +717,20 @@ public class MaritimeBookingApp extends Application {
         vbox.setPadding(new Insets(30));
         vbox.setAlignment(Pos.CENTER);
 
-        Label title = new Label("Завершённые рейсы с BREAKFAST");
+        Label title = new Label("Рейсы по статусу и питанию");
         title.setStyle("-fx-font-size: 20px; -fx-font-weight: bold;");
 
         Label statusLabel = new Label("Выберите статус рейса:");
         ComboBox<String> statusCombo = new ComboBox<>();
-        statusCombo.getItems().addAll("completed", "active", "cancelled");
+        statusCombo.getItems().addAll("active", "delayed", "completed", "cancelled", "postponed", "in_progress");
         statusCombo.setPromptText("Статус рейса");
 
         Label mealLabel = new Label("Выберите тип питания:");
         ComboBox<String> mealCombo = new ComboBox<>();
-        mealCombo.getItems().addAll("full_board", "breakfast", "half_board", "no_meals");
+        mealCombo.getItems().addAll("no_meals", "breakfast", "half_board", "full_board", "all_inclusive",
+                "ultra_all_inclusive");
         mealCombo.setPromptText("Тип питания");
 
-        Button searchBtn = new Button("Показать рейсы");
         TableView<ObservableList<String>> table = new TableView<>();
         table.setPrefHeight(400);
         TableColumn<ObservableList<String>, String> idCol = new TableColumn<>("ID");
@@ -750,11 +741,11 @@ public class MaritimeBookingApp extends Application {
         statusCol.setPrefWidth(120);
         table.getColumns().add(idCol);
         table.getColumns().add(statusCol);
-        searchBtn.setOnAction(_ -> {
+
+        Runnable updateTable = () -> {
             String status = statusCombo.getValue();
             String meal = mealCombo.getValue();
             if (status == null || meal == null) {
-                showAlert(Alert.AlertType.ERROR, "Ошибка", "Выберите статус рейса и тип питания!");
                 return;
             }
             ObservableList<ObservableList<String>> data = FXCollections.observableArrayList();
@@ -764,7 +755,8 @@ public class MaritimeBookingApp extends Application {
                         "JOIN maritime_booking.tickets ON tickets.voyage_id = voyages.id AND tickets.vessel_id = voyages.vessel_id\n"
                         +
                         "JOIN maritime_booking.customers ON tickets.email = customers.email\n" +
-                        "WHERE voyages.status = ? AND tickets.meal_type = ?";
+                        "WHERE voyages.status = ? AND tickets.meal_type = ?\n" +
+                        "ORDER BY voyages.id";
                 var ps = connection.prepareStatement(sql);
                 ps.setString(1, status);
                 ps.setString(2, meal);
@@ -779,8 +771,12 @@ public class MaritimeBookingApp extends Application {
             } catch (SQLException ex) {
                 showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить данные: " + ex.getMessage());
             }
-        });
-        VBox form = new VBox(10, statusLabel, statusCombo, mealLabel, mealCombo, searchBtn);
+        };
+
+        statusCombo.setOnAction(_ -> updateTable.run());
+        mealCombo.setOnAction(_ -> updateTable.run());
+
+        VBox form = new VBox(10, statusLabel, statusCombo, mealLabel, mealCombo);
         form.setAlignment(Pos.CENTER);
         form.setMaxWidth(350);
         vbox.getChildren().clear();
@@ -794,7 +790,7 @@ public class MaritimeBookingApp extends Application {
         vbox.setPadding(new Insets(30));
         vbox.setAlignment(Pos.CENTER);
 
-        Label title = new Label("Билеты с страховкой из страны");
+        Label title = new Label("Билеты со страховкой по стране");
         title.setStyle("-fx-font-size: 20px; -fx-font-weight: bold;");
 
         Label label = new Label("Выберите страну:");
@@ -802,7 +798,7 @@ public class MaritimeBookingApp extends Application {
         countryCombo.setPromptText("Страна");
 
         try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
-            var rs = JDBCManager.getCountries(connection);
+            var rs = JDBCManager.getCountriesWithInsuredTickets(connection);
             while (rs.next()) {
                 countryCombo.getItems().add(rs.getString("country"));
             }
@@ -810,7 +806,6 @@ public class MaritimeBookingApp extends Application {
             showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить список стран: " + e.getMessage());
         }
 
-        Button searchBtn = new Button("Показать билеты");
         TableView<ObservableList<String>> table = new TableView<>();
         table.setPrefHeight(400);
 
@@ -823,10 +818,9 @@ public class MaritimeBookingApp extends Application {
         table.getColumns().add(idCol);
         table.getColumns().add(priceCol);
 
-        searchBtn.setOnAction(_ -> {
+        countryCombo.setOnAction(_ -> {
             String country = countryCombo.getValue();
             if (country == null) {
-                showAlert(Alert.AlertType.ERROR, "Ошибка", "Выберите страну!");
                 return;
             }
 
@@ -839,7 +833,9 @@ public class MaritimeBookingApp extends Application {
                         "JOIN maritime_booking.voyage_stages ON voyage_stages.voyage_id = voyages.id AND voyage_stages.vessel_id = voyages.vessel_id\n"
                         +
                         "JOIN maritime_booking.ports ON voyage_stages.departure_port_id = ports.un_locode\n" +
-                        "WHERE ports.country = ? AND tickets.insurance = true AND voyage_stages.stop_number = 1";
+                        "JOIN maritime_booking.customers ON tickets.email = customers.email\n" +
+                        "WHERE ports.country = ? AND tickets.insurance = true AND voyage_stages.stop_number = 1\n" +
+                        "ORDER BY tickets.id";
                 var ps = connection.prepareStatement(sql);
                 ps.setString(1, country.toLowerCase());
                 var rs = ps.executeQuery();
@@ -855,7 +851,7 @@ public class MaritimeBookingApp extends Application {
             }
         });
 
-        VBox form = new VBox(10, label, countryCombo, searchBtn);
+        VBox form = new VBox(10, label, countryCombo);
         form.setAlignment(Pos.CENTER);
         form.setMaxWidth(350);
         vbox.getChildren().clear();
@@ -1226,8 +1222,6 @@ public class MaritimeBookingApp extends Application {
             showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить список рейсов: " + e.getMessage());
         }
 
-        Button searchBtn = new Button("Показать маршрут");
-
         TableView<ObservableList<String>> table = new TableView<>();
         table.setPrefHeight(400);
 
@@ -1261,9 +1255,8 @@ public class MaritimeBookingApp extends Application {
         routeTable.getColumns().add(depCityCol);
         routeTable.getColumns().add(arrCityCol);
 
-        searchBtn.setOnAction(_ -> {
+        voyageCombo.setOnAction(_ -> {
             if (voyageCombo.getValue() == null) {
-                showAlert(Alert.AlertType.ERROR, "Ошибка", "Выберите рейс!");
                 return;
             }
 
@@ -1311,7 +1304,7 @@ public class MaritimeBookingApp extends Application {
             }
         });
 
-        VBox form = new VBox(10, label, voyageCombo, searchBtn);
+        VBox form = new VBox(10, label, voyageCombo);
         form.setAlignment(Pos.CENTER);
         form.setMaxWidth(350);
         vbox.getChildren().clear();
@@ -1341,7 +1334,6 @@ public class MaritimeBookingApp extends Application {
             showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить список лет: " + e.getMessage());
         }
 
-        Button searchBtn = new Button("Показать продажи");
         TableView<ObservableList<String>> table = new TableView<>();
         table.setPrefHeight(400);
         TableColumn<ObservableList<String>, String> monthCol = new TableColumn<>("Месяц");
@@ -1372,10 +1364,10 @@ public class MaritimeBookingApp extends Application {
         table.getColumns().add(revCol);
         table.getColumns().add(avgCol);
         table.getColumns().add(insCol);
-        searchBtn.setOnAction(_ -> {
+
+        yearCombo.setOnAction(_ -> {
             String year = yearCombo.getValue();
             if (year == null) {
-                showAlert(Alert.AlertType.ERROR, "Ошибка", "Выберите год!");
                 return;
             }
             ObservableList<ObservableList<String>> data = FXCollections.observableArrayList();
@@ -1393,7 +1385,8 @@ public class MaritimeBookingApp extends Application {
                 showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить данные: " + ex.getMessage());
             }
         });
-        VBox form = new VBox(10, yearLabel, yearCombo, searchBtn);
+
+        VBox form = new VBox(10, yearLabel, yearCombo);
         form.setAlignment(Pos.CENTER);
         form.setMaxWidth(350);
         vbox.getChildren().clear();

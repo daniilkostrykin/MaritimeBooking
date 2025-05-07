@@ -256,6 +256,14 @@ public class JDBCManager {
                 "SELECT id, vessel_id FROM maritime_booking.voyages WHERE status = 'active'");
     }
 
+    public static ResultSet getCustomersWithTickets(Connection connection) throws SQLException {
+        return connection.createStatement().executeQuery(
+                "SELECT DISTINCT c.email, c.first_name, c.last_name " +
+                        "FROM maritime_booking.customers c " +
+                        "JOIN maritime_booking.tickets t ON c.email = t.email " +
+                        "ORDER BY c.email");
+    }
+
     public static ResultSet getVessels(Connection connection) throws SQLException {
         return connection.createStatement().executeQuery(
                 "SELECT imo, name FROM maritime_booking.vessels");
@@ -271,9 +279,15 @@ public class JDBCManager {
                 "SELECT email, first_name, last_name FROM maritime_booking.customers ORDER BY last_name, first_name");
     }
 
-    public static ResultSet getCountries(Connection connection) throws SQLException {
+    public static ResultSet getCountriesWithInsuredTickets(Connection connection) throws SQLException {
         return connection.createStatement().executeQuery(
-                "SELECT DISTINCT country FROM maritime_booking.ports ORDER BY country");
+                "SELECT DISTINCT p.country " +
+                        "FROM maritime_booking.ports p " +
+                        "JOIN maritime_booking.voyage_stages vs ON vs.departure_port_id = p.un_locode " +
+                        "JOIN maritime_booking.tickets t ON t.voyage_id = vs.voyage_id AND t.vessel_id = vs.vessel_id "
+                        +
+                        "WHERE t.insurance = true " +
+                        "ORDER BY p.country");
     }
 
     public static ResultSet getVoyagesWithVessels(Connection connection) throws SQLException {
@@ -281,5 +295,16 @@ public class JDBCManager {
                 "SELECT v.id, v.vessel_id, vs.name " +
                         "FROM maritime_booking.voyages v " +
                         "JOIN maritime_booking.vessels vs ON v.vessel_id = vs.imo");
+    }
+
+    public static ResultSet getCustomerTickets(Connection connection, String email) throws SQLException {
+        String sql = "SELECT tickets.id, tickets.price\n" +
+                "FROM maritime_booking.tickets\n" +
+                "JOIN maritime_booking.customers ON tickets.email = customers.email\n" +
+                "WHERE customers.email = ?\n" +
+                "ORDER BY tickets.id";
+        PreparedStatement ps = connection.prepareStatement(sql);
+        ps.setString(1, email);
+        return ps.executeQuery();
     }
 }
