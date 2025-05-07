@@ -1161,9 +1161,86 @@ public class MaritimeBookingApp extends Application {
         Label dateLabel = new Label("Дата до (YYYY-MM-DD):");
         TextField dateField = new TextField();
         dateField.setPromptText("Дата");
+
+        Button showFutureBtn = new Button("Показать будущие цены");
         Button updateBtn = new Button("Обновить цены");
+
+        HBox buttonBox = new HBox(10, showFutureBtn, updateBtn);
+        buttonBox.setAlignment(Pos.CENTER);
+
         TableView<ObservableList<String>> table = new TableView<>();
-        table.setPrefHeight(300);
+        table.setPrefHeight(350);
+
+        // Колонки добавляем один раз
+        TableColumn<ObservableList<String>, String> idCol = new TableColumn<>("ID билета");
+        idCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().get(0)));
+        idCol.setPrefWidth(100);
+        TableColumn<ObservableList<String>, String> weightCol = new TableColumn<>("Вес багажа");
+        weightCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().get(1)));
+        weightCol.setPrefWidth(120);
+        TableColumn<ObservableList<String>, String> priceCol = new TableColumn<>("Текущая цена");
+        priceCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().get(2)));
+        priceCol.setPrefWidth(120);
+        TableColumn<ObservableList<String>, String> futureCol = new TableColumn<>("Будущая обновленная цена");
+        futureCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().get(3)));
+        futureCol.setPrefWidth(160);
+        TableColumn<ObservableList<String>, String> dateCol = new TableColumn<>("Дата покупки");
+        dateCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().get(4)));
+        dateCol.setPrefWidth(120);
+        table.getColumns().add(idCol);
+        table.getColumns().add(weightCol);
+        table.getColumns().add(priceCol);
+        table.getColumns().add(futureCol);
+        table.getColumns().add(dateCol);
+
+        showFutureBtn.setOnAction(_ -> {
+            String minWeight = weightField.getText().trim();
+            String date = dateField.getText().trim();
+            if (minWeight.isEmpty() || !minWeight.matches("\\d+(\\.\\d+)?")) {
+                showAlert(Alert.AlertType.ERROR, "Ошибка", "Введите корректный вес!");
+                return;
+            }
+            if (date.isEmpty() || !date.matches("\\d{4}-\\d{2}-\\d{2}")) {
+                showAlert(Alert.AlertType.ERROR, "Ошибка", "Введите корректную дату!");
+                return;
+            }
+            table.getItems().clear();
+            futureCol.setText("Будущая обновленная цена");
+            try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
+                String sql = "SELECT t.id, t.luggage_weight, t.price, " +
+                        "t.price + (t.luggage_weight - ?) * 1000 as updated_price, t.purchase_date " +
+                        "FROM maritime_booking.tickets t " +
+                        "WHERE t.purchase_date < CAST(? AS date) AND t.luggage_weight > ? " +
+                        "AND EXISTS (SELECT 1 FROM maritime_booking.voyages v " +
+                        "WHERE t.voyage_id = v.id AND t.vessel_id = v.vessel_id AND v.status = 'active') " +
+                        "AND EXISTS (SELECT 1 FROM maritime_booking.customers c WHERE t.email = c.email) " +
+                        "ORDER BY t.id";
+                var ps = connection.prepareStatement(sql);
+                ps.setDouble(1, Double.parseDouble(minWeight));
+                ps.setString(2, date);
+                ps.setDouble(3, Double.parseDouble(minWeight));
+                var rs = ps.executeQuery();
+                ObservableList<ObservableList<String>> data = FXCollections.observableArrayList();
+                int rowCount = 0;
+                while (rs.next()) {
+                    ObservableList<String> row = FXCollections.observableArrayList();
+                    row.add(rs.getString("id"));
+                    row.add(rs.getString("luggage_weight"));
+                    row.add(rs.getString("price"));
+                    row.add(rs.getString("updated_price"));
+                    row.add(rs.getString("purchase_date"));
+                    data.add(row);
+                    rowCount++;
+                }
+                table.setItems(data);
+                if (rowCount == 0) {
+                    showAlert(Alert.AlertType.INFORMATION, "Нет билетов", "Не найдено билетов по заданным условиям.");
+                }
+            } catch (SQLException ex) {
+                showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить данные: " + ex.getMessage());
+            }
+        });
+
         updateBtn.setOnAction(_ -> {
             String minWeight = weightField.getText().trim();
             String date = dateField.getText().trim();
@@ -1175,17 +1252,42 @@ public class MaritimeBookingApp extends Application {
                 showAlert(Alert.AlertType.ERROR, "Ошибка", "Введите корректную дату!");
                 return;
             }
+            table.getItems().clear();
+            futureCol.setText("Обновленная цена");
             try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
                 JDBCManager.updateLuggagePrice(connection, Double.parseDouble(minWeight), date);
-                showTable("SELECT * FROM maritime_booking.tickets", table);
                 showAlert(Alert.AlertType.INFORMATION, "Успех", "Цены обновлены!");
+                String sql = "SELECT id, luggage_weight, price, purchase_date " +
+                        "FROM maritime_booking.tickets " +
+                        "WHERE purchase_date < CAST(? AS date) AND luggage_weight > ? " +
+                        "AND EXISTS (SELECT 1 FROM maritime_booking.voyages v " +
+                        "WHERE tickets.voyage_id = v.id AND tickets.vessel_id = v.vessel_id AND v.status = 'active') " +
+                        "AND EXISTS (SELECT 1 FROM maritime_booking.customers c WHERE tickets.email = c.email) " +
+                        "ORDER BY id";
+                var ps = connection.prepareStatement(sql);
+                ps.setString(1, date);
+                ps.setDouble(2, Double.parseDouble(minWeight));
+                var rs = ps.executeQuery();
+                ObservableList<ObservableList<String>> data = FXCollections.observableArrayList();
+                while (rs.next()) {
+                    ObservableList<String> row = FXCollections.observableArrayList();
+                    row.add(rs.getString("id"));
+                    row.add(rs.getString("luggage_weight"));
+                    row.add(rs.getString("price"));
+                    row.add(rs.getString("price")); // После обновления текущая цена = обновленная
+                    row.add(rs.getString("purchase_date"));
+                    data.add(row);
+                }
+                table.setItems(data);
             } catch (SQLException ex) {
                 showAlert(Alert.AlertType.ERROR, "Ошибка", "Ошибка обновления: " + ex.getMessage());
             }
         });
-        VBox form = new VBox(10, weightLabel, weightField, dateLabel, dateField, updateBtn);
+
+        VBox form = new VBox(10, weightLabel, weightField, dateLabel, dateField, buttonBox);
         form.setAlignment(Pos.CENTER);
         form.setMaxWidth(350);
+
         vbox.getChildren().clear();
         vbox.getChildren().addAll(title, form, table);
         vbox.setAlignment(Pos.CENTER);
