@@ -156,6 +156,13 @@ public class JDBCManager {
     }
 
     // Методы для работы с продажами
+    public static ResultSet getAvailableYears(Connection connection) throws SQLException {
+        String sql = "SELECT DISTINCT EXTRACT(YEAR FROM purchase_date)::integer as year " +
+                "FROM maritime_booking.tickets " +
+                "ORDER BY year DESC";
+        return connection.createStatement().executeQuery(sql);
+    }
+
     public static ResultSet getTicketSales(Connection connection, String year) throws SQLException {
         String sql = "SELECT EXTRACT(MONTH FROM t.purchase_date) AS month, p1.country AS departure_country, " +
                 "p2.country AS arrival_country, COUNT(t.id) AS ticket_count, " +

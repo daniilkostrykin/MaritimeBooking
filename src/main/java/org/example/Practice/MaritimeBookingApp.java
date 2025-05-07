@@ -363,8 +363,19 @@ public class MaritimeBookingApp extends Application {
         Label title = new Label("Билеты за год с ценой меньше");
         title.setStyle("-fx-font-size: 20px; -fx-font-weight: bold;");
 
-        TextField yearField = new TextField();
-        yearField.setPromptText("Год (например, 2024)");
+        Label yearLabel = new Label("Выберите год:");
+        ComboBox<String> yearCombo = new ComboBox<>();
+        yearCombo.setPromptText("Год");
+
+        try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
+            var rs = JDBCManager.getAvailableYears(connection);
+            while (rs.next()) {
+                yearCombo.getItems().add(rs.getString("year"));
+            }
+        } catch (SQLException e) {
+            showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить список лет: " + e.getMessage());
+        }
+
         TextField priceField = new TextField();
         priceField.setPromptText("Максимальная цена");
 
@@ -388,10 +399,10 @@ public class MaritimeBookingApp extends Application {
         table.getColumns().add(priceCol);
 
         filterBtn.setOnAction(_ -> {
-            String year = yearField.getText().trim();
+            String year = yearCombo.getValue();
             String maxPrice = priceField.getText().trim();
-            if (year.isEmpty() || maxPrice.isEmpty()) {
-                showAlert(Alert.AlertType.ERROR, "Ошибка", "Введите год и максимальную цену!");
+            if (year == null || maxPrice.isEmpty()) {
+                showAlert(Alert.AlertType.ERROR, "Ошибка", "Выберите год и введите максимальную цену!");
                 return;
             }
             ObservableList<ObservableList<String>> data = FXCollections.observableArrayList();
@@ -410,7 +421,7 @@ public class MaritimeBookingApp extends Application {
             }
         });
 
-        VBox form = new VBox(10, yearField, priceField, errorLabel, filterBtn);
+        VBox form = new VBox(10, yearLabel, yearCombo, priceField, errorLabel, filterBtn);
         form.setAlignment(Pos.CENTER);
         form.setMaxWidth(350);
 
@@ -909,6 +920,25 @@ public class MaritimeBookingApp extends Application {
             showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить данные: " + e.getMessage());
         }
 
+        voyageCombo.setOnAction(_ -> {
+            if (voyageCombo.getValue() != null) {
+                String vesselId = voyageCombo.getValue().split("IMO: ")[1].replace(")", "");
+                vesselCombo.setValue(vesselCombo.getItems().stream()
+                        .filter(item -> item.startsWith(vesselId))
+                        .findFirst()
+                        .orElse(null));
+
+                cabinCombo.setItems(FXCollections.observableArrayList(
+                        cabinCombo.getItems().stream()
+                                .filter(item -> item.contains("IMO: " + vesselId))
+                                .collect(java.util.stream.Collectors.toList())));
+
+                if (!cabinCombo.getItems().isEmpty()) {
+                    cabinCombo.setValue(cabinCombo.getItems().get(0));
+                }
+            }
+        });
+
         TextField priceField = new TextField();
         priceField.setPromptText("Цена");
         ComboBox<String> paymentMethodCombo = new ComboBox<>();
@@ -1298,9 +1328,19 @@ public class MaritimeBookingApp extends Application {
         Label title = new Label("Продажи билетов");
         title.setStyle("-fx-font-size: 20px; -fx-font-weight: bold;");
 
-        Label yearLabel = new Label("Введите год:");
-        TextField yearField = new TextField("2024");
-        yearField.setPromptText("Год");
+        Label yearLabel = new Label("Выберите год:");
+        ComboBox<String> yearCombo = new ComboBox<>();
+        yearCombo.setPromptText("Год");
+
+        try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
+            var rs = JDBCManager.getAvailableYears(connection);
+            while (rs.next()) {
+                yearCombo.getItems().add(rs.getString("year"));
+            }
+        } catch (SQLException e) {
+            showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить список лет: " + e.getMessage());
+        }
+
         Button searchBtn = new Button("Показать продажи");
         TableView<ObservableList<String>> table = new TableView<>();
         table.setPrefHeight(400);
@@ -1333,9 +1373,9 @@ public class MaritimeBookingApp extends Application {
         table.getColumns().add(avgCol);
         table.getColumns().add(insCol);
         searchBtn.setOnAction(_ -> {
-            String year = yearField.getText().trim();
-            if (year.isEmpty() || !year.matches("\\d{4}")) {
-                showAlert(Alert.AlertType.ERROR, "Ошибка", "Введите корректный год!");
+            String year = yearCombo.getValue();
+            if (year == null) {
+                showAlert(Alert.AlertType.ERROR, "Ошибка", "Выберите год!");
                 return;
             }
             ObservableList<ObservableList<String>> data = FXCollections.observableArrayList();
@@ -1353,7 +1393,7 @@ public class MaritimeBookingApp extends Application {
                 showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить данные: " + ex.getMessage());
             }
         });
-        VBox form = new VBox(10, yearLabel, yearField, searchBtn);
+        VBox form = new VBox(10, yearLabel, yearCombo, searchBtn);
         form.setAlignment(Pos.CENTER);
         form.setMaxWidth(350);
         vbox.getChildren().clear();
