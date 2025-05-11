@@ -22,8 +22,11 @@ import javafx.geometry.Pos;
 import javafx.scene.layout.VBox;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
+import org.example.dao.*;
+import org.example.entity.*;
+import java.util.List;
 
-public class MaritimeBookingApp extends Application {
+public class MaritimeBookingAppHib extends Application {
     private static final String PROTOCOL = "jdbc:postgresql://";
     private static final String URL_LOCALE_NAME = "localhost:5433/";
     private static final String DATABASE_NAME = "sea_cruises";
@@ -186,26 +189,30 @@ public class MaritimeBookingApp extends Application {
         Label errorLabel = new Label("");
         errorLabel.setStyle("-fx-text-fill: red; -fx-font-size: 12px;");
 
-        try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
-            var rs = JDBCManager.getActiveVoyages(connection);
-            while (rs.next()) {
-                voyageCombo.getItems().add(rs.getString("id") + " (IMO: " + rs.getString("vessel_id") + ")");
-            }
+        // Использую Hibernate DAO вместо JDBC
+        VoyageDAO voyageDAO = new VoyageDAO();
+        VesselDAO vesselDAO = new VesselDAO();
+        CabinDAO cabinDAO = new CabinDAO();
 
-            rs = JDBCManager.getVessels(connection);
-            while (rs.next()) {
-                vesselCombo.getItems().add(rs.getString("imo") + " (" + rs.getString("name") + ")");
-            }
+        // Получаю активные рейсы через VoyageDAO
+        List<Voyage> activeVoyages = voyageDAO.findByStatus("active");
+        for (Voyage voyage : activeVoyages) {
+            voyageCombo.getItems().add(voyage.getId() + " (IMO: " + voyage.getVesselId() + ")");
+        }
 
-            rs = JDBCManager.getCabins(connection);
-            while (rs.next()) {
-                cabinCombo.getItems().add(rs.getString("id") + " (IMO: " + rs.getString("vessel_id") +
-                        ", категория: " + rs.getString("category") +
-                        ", вместимость: " + rs.getString("capacity") +
-                        ", окно: " + (rs.getBoolean("window_view") ? "да" : "нет") + ")");
-            }
-        } catch (SQLException e) {
-            showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить данные: " + e.getMessage());
+        // Получаю суда через VesselDAO
+        List<Vessel> vessels = vesselDAO.findAll();
+        for (Vessel vessel : vessels) {
+            vesselCombo.getItems().add(vessel.getImo() + " (" + vessel.getName() + ")");
+        }
+
+        // Получаю каюты через CabinDAO
+        List<Cabin> cabins = cabinDAO.findAll();
+        for (Cabin cabin : cabins) {
+            cabinCombo.getItems().add(cabin.getId() + " (IMO: " + cabin.getVesselId() +
+                    ", категория: " + cabin.getCategory() +
+                    ", вместимость: " + cabin.getCapacity() +
+                    ", окно: " + (cabin.getWindowView() ? "да" : "нет") + ")");
         }
 
         voyageCombo.setOnAction(e -> {
@@ -249,13 +256,6 @@ public class MaritimeBookingApp extends Application {
             } else
                 voyageCombo.setStyle("");
 
-            if (vesselCombo.getValue() == null) {
-                valid = false;
-                errors.append("Выберите судно. ");
-                vesselCombo.setStyle("-fx-border-color: red;");
-            } else
-                vesselCombo.setStyle("");
-
             if (cabinCombo.getValue() == null) {
                 valid = false;
                 errors.append("Выберите каюту. ");
@@ -263,30 +263,30 @@ public class MaritimeBookingApp extends Application {
             } else
                 cabinCombo.setStyle("");
 
-            if (priceField.getText().isBlank() || !priceField.getText().matches("\\d+(\\.\\d+)?")) {
+            if (priceField.getText().isBlank()) {
                 valid = false;
-                errors.append("Price must be a number. ");
+                errors.append("Цена required. ");
                 priceField.setStyle("-fx-border-color: red;");
             } else
                 priceField.setStyle("");
 
             if (paymentMethodCombo.getValue() == null) {
                 valid = false;
-                errors.append("Выберите способ оплаты. ");
+                errors.append("Метод оплаты required. ");
                 paymentMethodCombo.setStyle("-fx-border-color: red;");
             } else
                 paymentMethodCombo.setStyle("");
 
             if (mealTypeCombo.getValue() == null) {
                 valid = false;
-                errors.append("Выберите тип питания. ");
+                errors.append("Тип питания required. ");
                 mealTypeCombo.setStyle("-fx-border-color: red;");
             } else
                 mealTypeCombo.setStyle("");
 
-            if (luggageField.getText().isBlank() || !luggageField.getText().matches("\\d+(\\.\\d+)?")) {
+            if (luggageField.getText().isBlank()) {
                 valid = false;
-                errors.append("Luggage must be a number. ");
+                errors.append("Вес багажа required. ");
                 luggageField.setStyle("-fx-border-color: red;");
             } else
                 luggageField.setStyle("");

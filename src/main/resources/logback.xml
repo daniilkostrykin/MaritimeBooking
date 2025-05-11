@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
+        </encoder>
+    </appender>
+
+    <!-- Отключаем логи Hibernate -->
+    <logger name="org.hibernate" level="ERROR" />
+    <logger name="org.hibernate.SQL" level="ERROR" />
+    <logger name="org.hibernate.orm.jdbc.bind" level="ERROR" />
+    <logger name="org.hibernate.orm.results" level="ERROR" />
+    <logger name="org.hibernate.stat" level="ERROR" />
+    <logger name="org.hibernate.SQL_SLOW" level="ERROR" />
+    <logger name="org.hibernate.cache" level="ERROR" />
+    
+    <!-- Настройка корневого логгера -->
+    <root level="INFO">
+        <appender-ref ref="CONSOLE" />
+    </root>
+</configuration> 
