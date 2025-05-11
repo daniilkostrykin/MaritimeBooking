@@ -24,7 +24,10 @@ import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import org.example.dao.*;
 import org.example.entity.*;
+import org.example.util.HibernateUtil;
 import java.util.List;
+import org.hibernate.Session;
+import org.hibernate.query.Query;
 
 public class MaritimeBookingAppHib extends Application {
     private static final String PROTOCOL = "jdbc:postgresql://";
@@ -40,7 +43,7 @@ public class MaritimeBookingAppHib extends Application {
 
     @Override
     public void start(Stage primaryStage) {
-        primaryStage.setTitle("Maritime Booking System");
+        primaryStage.setTitle("Maritime Booking System With Hibernate");
 
         TabPane tabPane = new TabPane();
 
@@ -367,12 +370,14 @@ public class MaritimeBookingAppHib extends Application {
         ComboBox<String> yearCombo = new ComboBox<>();
         yearCombo.setPromptText("Год");
 
-        try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
-            var rs = JDBCManager.getAvailableYears(connection);
-            while (rs.next()) {
-                yearCombo.getItems().add(rs.getString("year"));
+        // Используем TicketDAO для получения доступных лет
+        TicketDAO ticketDAO = new TicketDAO();
+        try {
+            List<Integer> years = ticketDAO.findDistinctYears();
+            for (Integer year : years) {
+                yearCombo.getItems().add(year.toString());
             }
-        } catch (SQLException e) {
+        } catch (Exception e) {
             showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить список лет: " + e.getMessage());
         }
 
@@ -405,18 +410,22 @@ public class MaritimeBookingAppHib extends Application {
                 showAlert(Alert.AlertType.ERROR, "Ошибка", "Выберите год и введите максимальную цену!");
                 return;
             }
+
+            // Используем TicketDAO для поиска билетов
             ObservableList<ObservableList<String>> data = FXCollections.observableArrayList();
-            try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
-                var rs = JDBCManager.getTicketsForYearWithPrice(connection, Integer.parseInt(year),
+            try {
+                List<Ticket> tickets = ticketDAO.findTicketsForYearWithMaxPrice(
+                        Integer.parseInt(year),
                         Double.parseDouble(maxPrice));
-                while (rs.next()) {
+
+                for (Ticket ticket : tickets) {
                     ObservableList<String> row = FXCollections.observableArrayList();
-                    row.add(rs.getString("id"));
-                    row.add(rs.getString("price"));
+                    row.add(ticket.getId().toString());
+                    row.add(ticket.getPrice().toString());
                     data.add(row);
                 }
                 table.setItems(data);
-            } catch (SQLException ex) {
+            } catch (Exception ex) {
                 showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить данные: " + ex.getMessage());
             }
         });
@@ -536,13 +545,15 @@ public class MaritimeBookingAppHib extends Application {
         ComboBox<String> emailCombo = new ComboBox<>();
         emailCombo.setPromptText("Email клиента");
 
-        try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
-            var rs = JDBCManager.getCustomersWithTickets(connection);
-            while (rs.next()) {
-                emailCombo.getItems().add(rs.getString("email") +
-                        " (" + rs.getString("last_name") + " " + rs.getString("first_name") + ")");
+        // Используем CustomerDAO для получения списка клиентов с билетами
+        CustomerDAO customerDAO = new CustomerDAO();
+        try {
+            List<Customer> customers = customerDAO.findCustomersWithTickets();
+            for (Customer customer : customers) {
+                emailCombo.getItems().add(customer.getEmail() +
+                        " (" + customer.getLastName() + " " + customer.getFirstName() + ")");
             }
-        } catch (SQLException e) {
+        } catch (Exception e) {
             showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить список клиентов: " + e.getMessage());
         }
 
@@ -558,6 +569,9 @@ public class MaritimeBookingAppHib extends Application {
         table.getColumns().add(idCol);
         table.getColumns().add(priceCol);
 
+        // Используем TicketDAO для получения билетов клиента
+        TicketDAO ticketDAO = new TicketDAO();
+
         emailCombo.setOnAction(e -> {
             if (emailCombo.getValue() == null) {
                 return;
@@ -565,13 +579,17 @@ public class MaritimeBookingAppHib extends Application {
 
             String email = emailCombo.getValue().split(" \\(")[0];
             ObservableList<ObservableList<String>> data = FXCollections.observableArrayList();
-            try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
-                var rs = JDBCManager.getCustomerTickets(connection, email);
-                while (rs.next()) {
-                    data.add(FXCollections.observableArrayList(rs.getString("id"), rs.getString("price")));
+            try {
+                List<Ticket> tickets = ticketDAO.findByCustomerEmail(email);
+
+                for (Ticket ticket : tickets) {
+                    ObservableList<String> row = FXCollections.observableArrayList();
+                    row.add(ticket.getId().toString());
+                    row.add(ticket.getPrice().toString());
+                    data.add(row);
                 }
                 table.setItems(data);
-            } catch (SQLException ex) {
+            } catch (Exception ex) {
                 showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить данные: " + ex.getMessage());
             }
         });
@@ -612,29 +630,26 @@ public class MaritimeBookingAppHib extends Application {
         table.getColumns().add(emailCol);
         table.getColumns().add(nameCol);
 
+        // Используем CustomerDAO для получения клиентов по типу питания
+        CustomerDAO customerDAO = new CustomerDAO();
+
         mealTypeCombo.setOnAction(e -> {
             String mealType = mealTypeCombo.getValue();
             if (mealType == null) {
                 return;
             }
             ObservableList<ObservableList<String>> data = FXCollections.observableArrayList();
-            try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
-                String sql = "SELECT customers.email, customers.first_name\n" +
-                        "FROM maritime_booking.customers\n" +
-                        "JOIN maritime_booking.tickets ON customers.email = tickets.email\n" +
-                        "WHERE tickets.meal_type = ?\n" +
-                        "ORDER BY customers.last_name, customers.first_name";
-                var ps = connection.prepareStatement(sql);
-                ps.setString(1, mealType);
-                var rs = ps.executeQuery();
-                while (rs.next()) {
+            try {
+                List<Customer> customers = customerDAO.findByMealType(mealType);
+
+                for (Customer customer : customers) {
                     ObservableList<String> row = FXCollections.observableArrayList();
-                    row.add(rs.getString("email"));
-                    row.add(rs.getString("first_name"));
+                    row.add(customer.getEmail());
+                    row.add(customer.getFirstName());
                     data.add(row);
                 }
                 table.setItems(data);
-            } catch (SQLException ex) {
+            } catch (Exception ex) {
                 showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить данные: " + ex.getMessage());
             }
         });
@@ -742,6 +757,9 @@ public class MaritimeBookingAppHib extends Application {
         table.getColumns().add(idCol);
         table.getColumns().add(statusCol);
 
+        // Используем VoyageDAO для получения рейсов
+        VoyageDAO voyageDAO = new VoyageDAO();
+
         Runnable updateTable = () -> {
             String status = statusCombo.getValue();
             String meal = mealCombo.getValue();
@@ -749,26 +767,17 @@ public class MaritimeBookingAppHib extends Application {
                 return;
             }
             ObservableList<ObservableList<String>> data = FXCollections.observableArrayList();
-            try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
-                String sql = "SELECT DISTINCT voyages.id, voyages.status\n" +
-                        "FROM maritime_booking.voyages\n" +
-                        "JOIN maritime_booking.tickets ON tickets.voyage_id = voyages.id AND tickets.vessel_id = voyages.vessel_id\n"
-                        +
-                        "JOIN maritime_booking.customers ON tickets.email = customers.email\n" +
-                        "WHERE voyages.status = ? AND tickets.meal_type = ?\n" +
-                        "ORDER BY voyages.id";
-                var ps = connection.prepareStatement(sql);
-                ps.setString(1, status);
-                ps.setString(2, meal);
-                var rs = ps.executeQuery();
-                while (rs.next()) {
+            try {
+                List<Voyage> voyages = voyageDAO.findByStatusAndMealType(status, meal);
+
+                for (Voyage voyage : voyages) {
                     ObservableList<String> row = FXCollections.observableArrayList();
-                    row.add(rs.getString("id"));
-                    row.add(rs.getString("status"));
+                    row.add(voyage.getId().toString());
+                    row.add(voyage.getStatus().toString());
                     data.add(row);
                 }
                 table.setItems(data);
-            } catch (SQLException ex) {
+            } catch (Exception ex) {
                 showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить данные: " + ex.getMessage());
             }
         };
@@ -797,12 +806,17 @@ public class MaritimeBookingAppHib extends Application {
         ComboBox<String> countryCombo = new ComboBox<>();
         countryCombo.setPromptText("Страна");
 
-        try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
-            var rs = JDBCManager.getCountriesWithInsuredTickets(connection);
-            while (rs.next()) {
-                countryCombo.getItems().add(rs.getString("country"));
+        // Получаем список стран с помощью PortDAO или используем альтернативный подход
+        try {
+            // Пока используем JDBC, так как у нас нет готового метода в DAO
+            // В идеале тут нужно создать PortDAO с методом getCountriesWithInsuredTickets
+            try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
+                var rs = JDBCManager.getCountriesWithInsuredTickets(connection);
+                while (rs.next()) {
+                    countryCombo.getItems().add(rs.getString("country"));
+                }
             }
-        } catch (SQLException e) {
+        } catch (Exception e) {
             showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить список стран: " + e.getMessage());
         }
 
@@ -818,6 +832,9 @@ public class MaritimeBookingAppHib extends Application {
         table.getColumns().add(idCol);
         table.getColumns().add(priceCol);
 
+        // Используем TicketDAO для получения билетов по стране
+        TicketDAO ticketDAO = new TicketDAO();
+
         countryCombo.setOnAction(e -> {
             String country = countryCombo.getValue();
             if (country == null) {
@@ -825,28 +842,17 @@ public class MaritimeBookingAppHib extends Application {
             }
 
             ObservableList<ObservableList<String>> data = FXCollections.observableArrayList();
-            try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
-                String sql = "SELECT tickets.id, tickets.price\n" +
-                        "FROM maritime_booking.tickets\n" +
-                        "JOIN maritime_booking.voyages ON tickets.voyage_id = voyages.id AND tickets.vessel_id = voyages.vessel_id\n"
-                        +
-                        "JOIN maritime_booking.voyage_stages ON voyage_stages.voyage_id = voyages.id AND voyage_stages.vessel_id = voyages.vessel_id\n"
-                        +
-                        "JOIN maritime_booking.ports ON voyage_stages.departure_port_id = ports.un_locode\n" +
-                        "JOIN maritime_booking.customers ON tickets.email = customers.email\n" +
-                        "WHERE ports.country = ? AND tickets.insurance = true AND voyage_stages.stop_number = 1\n" +
-                        "ORDER BY tickets.id";
-                var ps = connection.prepareStatement(sql);
-                ps.setString(1, country.toLowerCase());
-                var rs = ps.executeQuery();
-                while (rs.next()) {
+            try {
+                List<Ticket> tickets = ticketDAO.findInsuredTicketsByDepartureCountry(country);
+
+                for (Ticket ticket : tickets) {
                     ObservableList<String> row = FXCollections.observableArrayList();
-                    row.add(rs.getString("id"));
-                    row.add(rs.getString("price"));
+                    row.add(ticket.getId().toString());
+                    row.add(ticket.getPrice().toString());
                     data.add(row);
                 }
                 table.setItems(data);
-            } catch (SQLException ex) {
+            } catch (Exception ex) {
                 showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить данные: " + ex.getMessage());
             }
         });
