@@ -47,68 +47,46 @@ public class JDBCManager {
     }
 
     // Покупка билета - вторая вкладка
-    public static ResultSet getActiveVoyages(Connection connection) throws SQLException {
-        return connection.createStatement().executeQuery(
-                "SELECT id, vessel_id FROM maritime_booking.voyages WHERE status = 'active'");
-    }
-
-    public static ResultSet getVessels(Connection connection) throws SQLException {
-        return connection.createStatement().executeQuery(
-                "SELECT imo, name FROM maritime_booking.vessels");
-    }
-
-    public static ResultSet getCabins(Connection connection) throws SQLException {
-        return connection.createStatement().executeQuery(
-                "SELECT id, vessel_id, category, capacity, window_view FROM maritime_booking.cabins");
-    }
-
     public static void buyTicket(Connection connection, String email, int voyageId, String vesselId, int cabinId,
-            double price, String paymentMethod, String mealType, boolean insurance,
-            double luggageWeight, String purchaseDate) throws SQLException {
-        if (email == null || email.isBlank() || voyageId <= 0 || vesselId == null || vesselId.isBlank() ||
-                cabinId <= 0 || price <= 0 || paymentMethod == null || mealType == null || purchaseDate == null) {
+            double price, String paymentMethod, String mealType,
+            boolean hasInsurance, int luggageWeight, String purchaseDateStr) throws SQLException {
+        if (email == null || email.isBlank() || voyageId <= 0 || vesselId == null || vesselId.isBlank() || cabinId <= 0
+                ||
+                price <= 0 || paymentMethod == null || paymentMethod.isBlank() || mealType == null || mealType.isBlank()
+                ||
+                luggageWeight < 0 || purchaseDateStr == null || purchaseDateStr.isBlank()) {
             throw new SQLException("Invalid input parameters.");
         }
-        PreparedStatement checkCustomerStmt = connection.prepareStatement(
-                "SELECT 1 FROM maritime_booking.customers WHERE email = ?");
-        checkCustomerStmt.setString(1, email);
-        ResultSet customerRs = checkCustomerStmt.executeQuery();
-        if (!customerRs.next()) {
-            throw new SQLException("Customer with email " + email + " does not exist.");
+        java.sql.Date purchaseDate;
+        try {
+            purchaseDate = java.sql.Date.valueOf(purchaseDateStr.trim());
+        } catch (IllegalArgumentException e) {
+            throw new SQLException("Некорректный формат даты. Используйте формат ГГГГ-ММ-ДД: " + e.getMessage());
         }
-        PreparedStatement checkVoyageStmt = connection.prepareStatement(
-                "SELECT 1 FROM maritime_booking.voyages WHERE id = ? AND vessel_id = ?");
-        checkVoyageStmt.setInt(1, voyageId);
-        checkVoyageStmt.setString(2, vesselId);
-        ResultSet voyageRs = checkVoyageStmt.executeQuery();
-        if (!voyageRs.next()) {
-            throw new SQLException("Voyage with ID " + voyageId + " and vessel ID " + vesselId + " does not exist.");
-        }
-        PreparedStatement checkCabinStmt = connection.prepareStatement(
-                "SELECT 1 FROM maritime_booking.cabins WHERE id = ? AND vessel_id = ?");
-        checkCabinStmt.setInt(1, cabinId);
-        checkCabinStmt.setString(2, vesselId);
-        ResultSet cabinRs = checkCabinStmt.executeQuery();
-        if (!cabinRs.next()) {
-            throw new SQLException("Cabin with ID " + cabinId + " for vessel " + vesselId + " does not exist.");
-        }
-        String insertTicketSql = "INSERT INTO maritime_booking.tickets (email, voyage_id, vessel_id, cabin_id, price, "
-                + "payment_method, meal_type, insurance, luggage_weight, purchase_date) "
-                + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id";
-        PreparedStatement insertStmt = connection.prepareStatement(insertTicketSql);
-        insertStmt.setString(1, email);
-        insertStmt.setInt(2, voyageId);
-        insertStmt.setString(3, vesselId);
-        insertStmt.setInt(4, cabinId);
-        insertStmt.setDouble(5, price);
-        insertStmt.setString(6, paymentMethod);
-        insertStmt.setString(7, mealType);
-        insertStmt.setBoolean(8, insurance);
-        insertStmt.setDouble(9, luggageWeight);
-        insertStmt.setDate(10, java.sql.Date.valueOf(purchaseDate));
-        ResultSet rs = insertStmt.executeQuery();
-        if (rs.next()) {
-            System.out.println("Inserted ticket with ID " + rs.getInt(1));
+
+        PreparedStatement statement = connection.prepareStatement(
+                "INSERT INTO maritime_booking.tickets (email, voyage_id, vessel_id, cabin_id, price, " +
+                        "payment_method, meal_type, insurance, luggage_weight, purchase_date) " +
+                        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                Statement.RETURN_GENERATED_KEYS);
+        statement.setString(1, email);
+        statement.setInt(2, voyageId);
+        statement.setString(3, vesselId);
+        statement.setInt(4, cabinId);
+        statement.setDouble(5, price);
+        statement.setString(6, paymentMethod);
+        statement.setString(7, mealType);
+        statement.setBoolean(8, hasInsurance);
+        statement.setInt(9, luggageWeight);
+        statement.setDate(10, purchaseDate);
+        int count = statement.executeUpdate();
+        if (count > 0) {
+            ResultSet rs = statement.getGeneratedKeys();
+            if (rs.next()) {
+                System.out.println("Inserted ticket with ID " + rs.getInt(1));
+            }
+        } else {
+            throw new SQLException("Failed to insert ticket.");
         }
     }
 
@@ -141,6 +119,18 @@ public class JDBCManager {
         }
     }
 
+    // Версия метода addClient, принимающая строку даты
+    public static void addClient(Connection connection, String lastName, String firstName, String middleName,
+            long passportSeries, String birthDateStr, String email) throws SQLException {
+        // Проверка и преобразование строки даты в java.sql.Date
+        try {
+            java.sql.Date birthDate = java.sql.Date.valueOf(birthDateStr.trim());
+            addClient(connection, lastName, firstName, middleName, passportSeries, birthDate, email);
+        } catch (IllegalArgumentException e) {
+            throw new SQLException("Некорректный формат даты. Используйте формат ГГГГ-ММ-ДД: " + e.getMessage());
+        }
+    }
+
     // Билеты за год с ценой меньше - четвертая вкладка
     public static ResultSet getTicketsForYearWithPrice(Connection connection, int year, double price)
             throws SQLException {
@@ -154,6 +144,15 @@ public class JDBCManager {
                 "FROM maritime_booking.tickets " +
                 "ORDER BY year DESC";
         return connection.createStatement().executeQuery(sql);
+    }
+
+    // Проверка существования клиента по email
+    public static boolean checkCustomerExists(Connection connection, String email) throws SQLException {
+        String sql = "SELECT 1 FROM maritime_booking.customers WHERE email = ?";
+        PreparedStatement ps = connection.prepareStatement(sql);
+        ps.setString(1, email);
+        ResultSet rs = ps.executeQuery();
+        return rs.next();
     }
 
     // Билеты клиента - пятая вкладка
@@ -264,37 +263,76 @@ public class JDBCManager {
                 "SELECT email, first_name, last_name FROM maritime_booking.customers ORDER BY last_name, first_name");
     }
 
+    // Добавление клиента и билета - десятая вкладка
     public static int addClientAndTicket(Connection connection, String email, String lastName, String firstName,
-            String middleName, String birthDate, String passportSeries,
-            int voyageId, String vesselId, int cabinId, double price,
-            String paymentMethod, String mealType, boolean insurance,
-            int luggageWeight, String purchaseDate) throws SQLException {
+            String middleName, String birthDateStr, String passportStr, int voyageId,
+            String vesselId, int cabinId, double price, String paymentMethod,
+            String mealType, boolean hasInsurance, int luggageWeight,
+            String purchaseDateStr) throws SQLException {
+        if (email == null || email.isBlank() || lastName == null || lastName.isBlank() ||
+                firstName == null || firstName.isBlank() || birthDateStr == null || birthDateStr.isBlank() ||
+                passportStr == null || passportStr.isBlank() || voyageId <= 0 || vesselId == null || vesselId.isBlank()
+                ||
+                cabinId <= 0 || price <= 0 || paymentMethod == null || paymentMethod.isBlank() ||
+                mealType == null || mealType.isBlank() || luggageWeight < 0 ||
+                purchaseDateStr == null || purchaseDateStr.isBlank()) {
+            throw new SQLException("Invalid input parameters.");
+        }
+
+        // Проверка и преобразование дат
+        java.sql.Date birthDate;
+        java.sql.Date purchaseDate;
+        try {
+            birthDate = java.sql.Date.valueOf(birthDateStr.trim());
+            purchaseDate = java.sql.Date.valueOf(purchaseDateStr.trim());
+        } catch (IllegalArgumentException e) {
+            throw new SQLException("Некорректный формат даты. Используйте формат ГГГГ-ММ-ДД: " + e.getMessage());
+        }
+
+        // Проверка и преобразование серии паспорта
+        long passportSeries;
+        try {
+            passportSeries = Long.parseLong(passportStr);
+            if (passportStr.length() != 10) {
+                throw new SQLException("Серия паспорта должна содержать 10 цифр");
+            }
+        } catch (NumberFormatException e) {
+            throw new SQLException("Серия паспорта должна быть числом: " + e.getMessage());
+        }
+
         connection.setAutoCommit(false);
         try {
-            String sql1 = "INSERT INTO maritime_booking.customers (email, last_name, first_name, middle_name, birth_date, passport_series) VALUES (?, ?, ?, ?, ?, ?)";
-            var ps1 = connection.prepareStatement(sql1);
-            ps1.setString(1, email);
-            ps1.setString(2, lastName);
-            ps1.setString(3, firstName);
-            ps1.setString(4, middleName);
-            ps1.setDate(5, java.sql.Date.valueOf(birthDate));
-            ps1.setString(6, passportSeries);
-            ps1.executeUpdate();
+            // Добавление клиента
+            PreparedStatement stmtClient = connection.prepareStatement(
+                    "INSERT INTO maritime_booking.customers (email, last_name, first_name, middle_name, birth_date, passport_series) "
+                            +
+                            "VALUES (?, ?, ?, ?, ?, ?) " +
+                            "ON CONFLICT (email) DO NOTHING");
+            stmtClient.setString(1, email);
+            stmtClient.setString(2, lastName);
+            stmtClient.setString(3, firstName);
+            stmtClient.setString(4, middleName);
+            stmtClient.setDate(5, birthDate);
+            stmtClient.setLong(6, passportSeries);
+            stmtClient.executeUpdate();
 
-            String sql2 = "INSERT INTO maritime_booking.tickets (email, voyage_id, vessel_id, cabin_id, price, payment_method, meal_type, insurance, luggage_weight, purchase_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id";
-            var ps2 = connection.prepareStatement(sql2);
-            ps2.setString(1, email);
-            ps2.setInt(2, voyageId);
-            ps2.setString(3, vesselId);
-            ps2.setInt(4, cabinId);
-            ps2.setDouble(5, price);
-            ps2.setString(6, paymentMethod);
-            ps2.setString(7, mealType);
-            ps2.setBoolean(8, insurance);
-            ps2.setInt(9, luggageWeight);
-            ps2.setDate(10, java.sql.Date.valueOf(purchaseDate));
+            // Добавление билета
+            PreparedStatement stmtTicket = connection.prepareStatement(
+                    "INSERT INTO maritime_booking.tickets (email, voyage_id, vessel_id, cabin_id, price, " +
+                            "payment_method, meal_type, insurance, luggage_weight, purchase_date) " +
+                            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id");
+            stmtTicket.setString(1, email);
+            stmtTicket.setInt(2, voyageId);
+            stmtTicket.setString(3, vesselId);
+            stmtTicket.setInt(4, cabinId);
+            stmtTicket.setDouble(5, price);
+            stmtTicket.setString(6, paymentMethod);
+            stmtTicket.setString(7, mealType);
+            stmtTicket.setBoolean(8, hasInsurance);
+            stmtTicket.setInt(9, luggageWeight);
+            stmtTicket.setDate(10, purchaseDate);
+            ResultSet rs = stmtTicket.executeQuery();
 
-            ResultSet rs = ps2.executeQuery();
             int ticketId = -1;
             if (rs.next()) {
                 ticketId = rs.getInt(1);
@@ -305,6 +343,8 @@ public class JDBCManager {
         } catch (SQLException e) {
             connection.rollback();
             throw e;
+        } finally {
+            connection.setAutoCommit(true);
         }
     }
 
@@ -474,5 +514,21 @@ public class JDBCManager {
                 "GROUP BY vs.departure_port_id, vs.arrival_port_id " +
                 "ORDER BY total_revenue DESC";
         return connection.createStatement().executeQuery(sql);
+    }
+
+    // Общие методы для работы с данными
+    public static ResultSet getActiveVoyages(Connection connection) throws SQLException {
+        return connection.createStatement().executeQuery(
+                "SELECT id, vessel_id FROM maritime_booking.voyages WHERE status = 'active'");
+    }
+
+    public static ResultSet getVessels(Connection connection) throws SQLException {
+        return connection.createStatement().executeQuery(
+                "SELECT imo, name FROM maritime_booking.vessels");
+    }
+
+    public static ResultSet getCabins(Connection connection) throws SQLException {
+        return connection.createStatement().executeQuery(
+                "SELECT id, vessel_id, category, capacity, window_view FROM maritime_booking.cabins");
     }
 }

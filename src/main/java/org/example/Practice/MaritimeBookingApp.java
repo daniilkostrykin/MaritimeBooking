@@ -157,9 +157,10 @@ public class MaritimeBookingApp extends Application {
         ComboBox<String> voyageCombo = new ComboBox<>();
         voyageCombo.setPromptText("ID рейса");
 
-        Label vesselLabel = new Label("Выберите судно:");
+        Label vesselLabel = new Label("Судно:");
         ComboBox<String> vesselCombo = new ComboBox<>();
         vesselCombo.setPromptText("IMO судна");
+        vesselCombo.setDisable(true);
 
         Label cabinLabel = new Label("Выберите каюту:");
         ComboBox<String> cabinCombo = new ComboBox<>();
@@ -179,12 +180,17 @@ public class MaritimeBookingApp extends Application {
 
         CheckBox insuranceCheck = new CheckBox("Страховка");
         TextField luggageField = new TextField();
-        luggageField.setPromptText("Вес багажа");
+        luggageField.setPromptText("Вес багажа (кг)");
         TextField purchaseDateField = new TextField();
         purchaseDateField.setPromptText("Дата покупки (ГГГГ-ММ-ДД)");
 
-        Label errorLabel = new Label("");
-        errorLabel.setStyle("-fx-text-fill: red; -fx-font-size: 12px;");
+        // Замена обычного Label на VBox со списком ошибок
+        VBox errorBox = new VBox(5);
+        errorBox.setAlignment(Pos.CENTER_LEFT);
+        errorBox.setPadding(new Insets(5, 0, 5, 0));
+
+        // Сохраняем полный список кают для повторного использования
+        ObservableList<String> allCabins = FXCollections.observableArrayList();
 
         try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
             var rs = JDBCManager.getActiveVoyages(connection);
@@ -199,11 +205,15 @@ public class MaritimeBookingApp extends Application {
 
             rs = JDBCManager.getCabins(connection);
             while (rs.next()) {
-                cabinCombo.getItems().add(rs.getString("id") + " (IMO: " + rs.getString("vessel_id") +
+                String cabinItem = rs.getString("id") + " (IMO: " + rs.getString("vessel_id") +
                         ", категория: " + rs.getString("category") +
                         ", вместимость: " + rs.getString("capacity") +
-                        ", окно: " + (rs.getBoolean("window_view") ? "да" : "нет") + ")");
+                        ", окно: " + (rs.getBoolean("window_view") ? "да" : "нет") + ")";
+                allCabins.add(cabinItem);
             }
+
+            // Устанавливаем полный список кают изначально
+            cabinCombo.setItems(FXCollections.observableArrayList(allCabins));
         } catch (SQLException e) {
             showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить данные: " + e.getMessage());
         }
@@ -211,95 +221,129 @@ public class MaritimeBookingApp extends Application {
         voyageCombo.setOnAction(e -> {
             if (voyageCombo.getValue() != null) {
                 String vesselId = voyageCombo.getValue().split("IMO: ")[1].replace(")", "");
+
+                // Находим соответствующее судно и устанавливаем его
                 vesselCombo.setValue(vesselCombo.getItems().stream()
                         .filter(item -> item.startsWith(vesselId))
                         .findFirst()
                         .orElse(null));
+
+                // Автоматическая подстановка каюты при выборе рейса
+                if (vesselCombo.getValue() != null) {
+                    String cabinVesselId = vesselCombo.getValue().split(" ")[0];
+                    ObservableList<String> filteredCabins = FXCollections.observableArrayList(
+                            allCabins.stream()
+                                    .filter(item -> item.contains("IMO: " + cabinVesselId))
+                                    .collect(java.util.stream.Collectors.toList()));
+
+                    cabinCombo.setItems(filteredCabins);
+                    if (!filteredCabins.isEmpty()) {
+                        cabinCombo.setValue(filteredCabins.get(0));
+                    }
+                }
             }
         });
 
-        vesselCombo.setOnAction(e -> {
-            if (vesselCombo.getValue() != null) {
-                String vesselId = vesselCombo.getValue().split(" ")[0];
-                cabinCombo.setItems(FXCollections.observableArrayList(
-                        cabinCombo.getItems().stream()
-                                .filter(item -> item.contains("IMO: " + vesselId))
-                                .collect(java.util.stream.Collectors.toList())));
-            }
-        });
+        // Установка сегодняшней даты по умолчанию
+        purchaseDateField.setText(java.time.LocalDate.now().toString());
 
         Button buyTicketBtn = new Button("Купить билет");
 
         buyTicketBtn.setOnAction(e -> {
-            errorLabel.setText("");
-            boolean valid = true;
-            StringBuilder errors = new StringBuilder();
+            // Очищаем предыдущие ошибки и стили
+            errorBox.getChildren().clear();
+            emailField.setStyle("");
+            voyageCombo.setStyle("");
+            vesselCombo.setStyle("");
+            cabinCombo.setStyle("");
+            priceField.setStyle("");
+            paymentMethodCombo.setStyle("");
+            mealTypeCombo.setStyle("");
+            luggageField.setStyle("");
+            purchaseDateField.setStyle("");
 
-            if (emailField.getText().isBlank()) {
-                valid = false;
-                errors.append("Email required. ");
+            // Список для ошибок
+            java.util.List<String> errors = new java.util.ArrayList<>();
+
+            // Валидация email
+            if (!Validator.isNotEmpty(emailField.getText())) {
+                errors.add("• Необходимо указать Email клиента");
                 emailField.setStyle("-fx-border-color: red;");
-            } else
-                emailField.setStyle("");
+            } else if (!Validator.isValidEmail(emailField.getText())) {
+                errors.add("• Неверный формат Email");
+                emailField.setStyle("-fx-border-color: red;");
+            }
 
+            // Проверка существования клиента
+            if (Validator.isValidEmail(emailField.getText())) {
+                try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
+                    if (!JDBCManager.checkCustomerExists(connection, emailField.getText())) {
+                        errors.add("• Клиент с таким Email не найден в базе");
+                        emailField.setStyle("-fx-border-color: red;");
+                    }
+                } catch (SQLException ex) {
+                    errors.add("• Ошибка проверки клиента: " + ex.getMessage());
+                }
+            }
+
+            // Валидация рейса
             if (voyageCombo.getValue() == null) {
-                valid = false;
-                errors.append("Выберите рейс. ");
+                errors.add("• Необходимо выбрать рейс");
                 voyageCombo.setStyle("-fx-border-color: red;");
-            } else
-                voyageCombo.setStyle("");
+            }
 
+            // Валидация судна
             if (vesselCombo.getValue() == null) {
-                valid = false;
-                errors.append("Выберите судно. ");
+                errors.add("• Необходимо выбрать судно");
                 vesselCombo.setStyle("-fx-border-color: red;");
-            } else
-                vesselCombo.setStyle("");
+            }
 
+            // Валидация каюты
             if (cabinCombo.getValue() == null) {
-                valid = false;
-                errors.append("Выберите каюту. ");
+                errors.add("• Необходимо выбрать каюту");
                 cabinCombo.setStyle("-fx-border-color: red;");
-            } else
-                cabinCombo.setStyle("");
+            }
 
-            if (priceField.getText().isBlank() || !priceField.getText().matches("\\d+(\\.\\d+)?")) {
-                valid = false;
-                errors.append("Price must be a number. ");
+            // Валидация цены
+            if (!Validator.isNumeric(priceField.getText())) {
+                errors.add("• Цена должна быть числом");
                 priceField.setStyle("-fx-border-color: red;");
-            } else
-                priceField.setStyle("");
+            }
 
+            // Валидация способа оплаты
             if (paymentMethodCombo.getValue() == null) {
-                valid = false;
-                errors.append("Выберите способ оплаты. ");
+                errors.add("• Необходимо выбрать способ оплаты");
                 paymentMethodCombo.setStyle("-fx-border-color: red;");
-            } else
-                paymentMethodCombo.setStyle("");
+            }
 
+            // Валидация типа питания
             if (mealTypeCombo.getValue() == null) {
-                valid = false;
-                errors.append("Выберите тип питания. ");
+                errors.add("• Необходимо выбрать тип питания");
                 mealTypeCombo.setStyle("-fx-border-color: red;");
-            } else
-                mealTypeCombo.setStyle("");
+            }
 
-            if (luggageField.getText().isBlank() || !luggageField.getText().matches("\\d+(\\.\\d+)?")) {
-                valid = false;
-                errors.append("Luggage must be a number. ");
+            // Валидация веса багажа
+            if (!Validator.isNumeric(luggageField.getText())) {
+                errors.add("• Вес багажа должен быть числом");
                 luggageField.setStyle("-fx-border-color: red;");
-            } else
-                luggageField.setStyle("");
+            }
 
-            if (purchaseDateField.getText().isBlank() || !purchaseDateField.getText().matches("\\d{4}-\\d{2}-\\d{2}")) {
-                valid = false;
-                errors.append("Date must be YYYY-MM-DD. ");
+            // Валидация даты покупки
+            if (!Validator.isValidDate(purchaseDateField.getText())) {
+                errors.add("• Дата должна быть в формате ГГГГ-ММ-ДД");
                 purchaseDateField.setStyle("-fx-border-color: red;");
-            } else
-                purchaseDateField.setStyle("");
+            } else if (!Validator.isNotFutureDate(purchaseDateField.getText())) {
+                errors.add("• Дата покупки не может быть в будущем");
+                purchaseDateField.setStyle("-fx-border-color: red;");
+            }
 
-            if (!valid) {
-                errorLabel.setText(errors.toString());
+            // Если есть ошибки, показываем их и прерываем выполнение
+            if (!errors.isEmpty()) {
+                for (String error : errors) {
+                    Label errorLabel = new Label(error);
+                    errorLabel.setStyle("-fx-text-fill: red; -fx-font-size: 12px;");
+                    errorBox.getChildren().add(errorLabel);
+                }
                 return;
             }
 
@@ -317,21 +361,27 @@ public class MaritimeBookingApp extends Application {
                         paymentMethodCombo.getValue(),
                         mealTypeCombo.getValue(),
                         insuranceCheck.isSelected(),
-                        Double.parseDouble(luggageField.getText()),
+                        Integer.parseInt(luggageField.getText()),
                         purchaseDateField.getText());
-                showAlert(Alert.AlertType.INFORMATION, "Success", "Ticket purchased successfully!");
+                showAlert(Alert.AlertType.INFORMATION, "Успех", "Билет успешно куплен!");
+
+                // Очищаем поля после успешной покупки, но оставляем без изменений списки
                 emailField.clear();
-                voyageCombo.setValue(null);
-                vesselCombo.setValue(null);
-                cabinCombo.setValue(null);
                 priceField.clear();
                 paymentMethodCombo.setValue(null);
                 mealTypeCombo.setValue(null);
                 insuranceCheck.setSelected(false);
                 luggageField.clear();
-                purchaseDateField.clear();
+                purchaseDateField.setText(java.time.LocalDate.now().toString());
+
+                // Не сбрасываем выбор рейса, судна и каюты для удобства при повторной покупке
+                // voyageCombo.setValue(null);
+                // vesselCombo.setValue(null);
+                // cabinCombo.setValue(null);
             } catch (SQLException ex1) {
-                showAlert(Alert.AlertType.ERROR, "Error", "Failed to purchase ticket: " + ex1.getMessage());
+                Label errorLabel = new Label("• " + ex1.getMessage());
+                errorLabel.setStyle("-fx-text-fill: red; -fx-font-size: 12px;");
+                errorBox.getChildren().add(errorLabel);
             }
         });
 
@@ -346,7 +396,7 @@ public class MaritimeBookingApp extends Application {
                 insuranceCheck,
                 luggageField,
                 purchaseDateField,
-                errorLabel,
+                errorBox,
                 buyTicketBtn);
         form.setAlignment(Pos.CENTER);
         form.setMaxWidth(350);
@@ -450,73 +500,138 @@ public class MaritimeBookingApp extends Application {
         TextField birthDateField = new TextField();
         birthDateField.setPromptText("Дата рождения (ГГГГ-ММ-ДД)");
         TextField passportField = new TextField();
-        passportField.setPromptText("Серия паспорта");
+        passportField.setPromptText("Серия паспорта (10 цифр)");
 
-        Label errorLabel = new Label("");
-        errorLabel.setStyle("-fx-text-fill: red; -fx-font-size: 12px;");
+        // Замена обычного Label на VBox со списком ошибок
+        VBox errorBox = new VBox(5);
+        errorBox.setAlignment(Pos.CENTER_LEFT);
+        errorBox.setPadding(new Insets(5, 0, 5, 0));
+
+        // Установка текущей даты в поле даты рождения
+        birthDateField.setText(java.time.LocalDate.now().toString());
 
         Button addClientBtn = new Button("Добавить клиента");
 
         addClientBtn.setOnAction(e -> {
-            errorLabel.setText("");
-            boolean valid = true;
-            StringBuilder errors = new StringBuilder();
-            if (emailField.getText().isBlank()) {
-                valid = false;
-                errors.append("Требуется email. ");
+            // Очищаем предыдущие ошибки и стили
+            errorBox.getChildren().clear();
+            emailField.setStyle("");
+            lastNameField.setStyle("");
+            firstNameField.setStyle("");
+            middleNameField.setStyle("");
+            birthDateField.setStyle("");
+            passportField.setStyle("");
+
+            // Список для ошибок
+            java.util.List<String> errors = new java.util.ArrayList<>();
+
+            // Валидация email
+            if (!Validator.isNotEmpty(emailField.getText())) {
+                errors.add("• Необходимо указать Email");
                 emailField.setStyle("-fx-border-color: red;");
-            } else
-                emailField.setStyle("");
-            if (lastNameField.getText().isBlank()) {
-                valid = false;
-                errors.append("Требуется фамилия. ");
+            } else if (!Validator.isValidEmail(emailField.getText())) {
+                errors.add("• Неверный формат Email");
+                emailField.setStyle("-fx-border-color: red;");
+            }
+
+            // Проверка уникальности email
+            if (Validator.isValidEmail(emailField.getText())) {
+                try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
+                    if (JDBCManager.checkCustomerExists(connection, emailField.getText())) {
+                        errors.add("• Клиент с таким Email уже существует");
+                        emailField.setStyle("-fx-border-color: red;");
+                    }
+                } catch (SQLException ex) {
+                    errors.add("• Ошибка проверки клиента: " + ex.getMessage());
+                }
+            }
+
+            // Валидация фамилии
+            if (!Validator.isNotEmpty(lastNameField.getText())) {
+                errors.add("• Необходимо указать фамилию");
                 lastNameField.setStyle("-fx-border-color: red;");
-            } else
-                lastNameField.setStyle("");
-            if (firstNameField.getText().isBlank()) {
-                valid = false;
-                errors.append("Требуется имя. ");
+            } else if (!Validator.isAlphabetic(lastNameField.getText())) {
+                errors.add("• Фамилия должна содержать только буквы");
+                lastNameField.setStyle("-fx-border-color: red;");
+            }
+
+            // Валидация имени
+            if (!Validator.isNotEmpty(firstNameField.getText())) {
+                errors.add("• Необходимо указать имя");
                 firstNameField.setStyle("-fx-border-color: red;");
-            } else
-                firstNameField.setStyle("");
-            if (passportField.getText().isBlank() || !passportField.getText().matches("\\d+")) {
-                valid = false;
-                errors.append("Серия паспорта должна быть числом. ");
-                passportField.setStyle("-fx-border-color: red;");
-            } else
-                passportField.setStyle("");
-            if (birthDateField.getText().isBlank() || !birthDateField.getText().matches("\\d{4}-\\d{2}-\\d{2}")) {
-                valid = false;
-                errors.append("Дата должна быть в формате ГГГГ-ММ-ДД. ");
+            } else if (!Validator.isAlphabetic(firstNameField.getText())) {
+                errors.add("• Имя должно содержать только буквы");
+                firstNameField.setStyle("-fx-border-color: red;");
+            }
+
+            // Валидация отчества
+            if (Validator.isNotEmpty(middleNameField.getText()) &&
+                    !Validator.isAlphabetic(middleNameField.getText())) {
+                errors.add("• Отчество должно содержать только буквы");
+                middleNameField.setStyle("-fx-border-color: red;");
+            } else {
+                middleNameField.setStyle("");
+            }
+
+            // Валидация даты рождения
+            if (!Validator.isValidDate(birthDateField.getText())) {
+                errors.add("• Дата должна быть в формате ГГГГ-ММ-ДД");
                 birthDateField.setStyle("-fx-border-color: red;");
-            } else
-                birthDateField.setStyle("");
-            if (!valid) {
-                errorLabel.setText(errors.toString());
+            } else if (!Validator.isNotFutureDate(birthDateField.getText())) {
+                errors.add("• Дата рождения не может быть в будущем");
+                birthDateField.setStyle("-fx-border-color: red;");
+            }
+
+            // Валидация паспорта - ровно 10 цифр
+            if (!passportField.getText().matches("^\\d{10}$")) {
+                errors.add("• Серия паспорта должна содержать ровно 10 цифр");
+                passportField.setStyle("-fx-border-color: red;");
+            }
+
+            // Если есть ошибки, показываем их и прерываем выполнение
+            if (!errors.isEmpty()) {
+                for (String error : errors) {
+                    Label errorLabel = new Label(error);
+                    errorLabel.setStyle("-fx-text-fill: red; -fx-font-size: 12px;");
+                    errorBox.getChildren().add(errorLabel);
+                }
                 return;
             }
+
             try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
                 JDBCManager.addClient(connection,
                         lastNameField.getText(),
                         firstNameField.getText(),
                         middleNameField.getText(),
                         Long.parseLong(passportField.getText()),
-                        java.sql.Date.valueOf(birthDateField.getText()),
+                        birthDateField.getText(),
                         emailField.getText());
+
                 showAlert(Alert.AlertType.INFORMATION, "Успех", "Клиент успешно добавлен!");
+
+                // Очищаем поля после успешного добавления
                 emailField.clear();
                 lastNameField.clear();
                 firstNameField.clear();
                 middleNameField.clear();
-                birthDateField.clear();
+                birthDateField.setText(java.time.LocalDate.now().toString());
                 passportField.clear();
             } catch (SQLException ex1) {
-                showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось добавить клиента: " + ex1.getMessage());
+                Label errorLabel = new Label("• " + ex1.getMessage());
+                errorLabel.setStyle("-fx-text-fill: red; -fx-font-size: 12px;");
+                errorBox.getChildren().add(errorLabel);
             }
         });
 
-        VBox form = new VBox(10, emailField, lastNameField, firstNameField, middleNameField, birthDateField,
-                passportField, errorLabel, addClientBtn);
+        VBox form = new VBox(10,
+                emailField,
+                lastNameField,
+                firstNameField,
+                middleNameField,
+                birthDateField,
+                passportField,
+                errorBox,
+                addClientBtn);
         form.setAlignment(Pos.CENTER);
         form.setMaxWidth(350);
         vbox.getChildren().addAll(title, form);
@@ -930,17 +1045,29 @@ public class MaritimeBookingApp extends Application {
         TextField passportField = new TextField();
         passportField.setPromptText("Серия паспорта (10 цифр)");
 
+        // Установка текущей даты в поле даты рождения
+        birthDateField.setText(java.time.LocalDate.now().toString());
+
         Label voyageLabel = new Label("Выберите рейс:");
         ComboBox<String> voyageCombo = new ComboBox<>();
         voyageCombo.setPromptText("ID рейса");
 
-        Label vesselLabel = new Label("Выберите судно:");
+        Label vesselLabel = new Label("Судно:");
         ComboBox<String> vesselCombo = new ComboBox<>();
         vesselCombo.setPromptText("IMO судна");
+        vesselCombo.setDisable(true);
 
         Label cabinLabel = new Label("Выберите каюту:");
         ComboBox<String> cabinCombo = new ComboBox<>();
         cabinCombo.setPromptText("ID каюты");
+
+        // Замена обычного Label на VBox со списком ошибок
+        VBox errorBox = new VBox(5);
+        errorBox.setAlignment(Pos.CENTER_LEFT);
+        errorBox.setPadding(new Insets(5, 0, 5, 0));
+
+        // Сохраняем полный список кают для повторного использования
+        ObservableList<String> allCabins = FXCollections.observableArrayList();
 
         try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
             var rs = JDBCManager.getActiveVoyages(connection);
@@ -955,10 +1082,12 @@ public class MaritimeBookingApp extends Application {
 
             rs = JDBCManager.getCabins(connection);
             while (rs.next()) {
-                cabinCombo.getItems().add(rs.getString("id") + " (IMO: " + rs.getString("vessel_id") +
+                String cabinItem = rs.getString("id") + " (IMO: " + rs.getString("vessel_id") +
                         ", категория: " + rs.getString("category") +
                         ", вместимость: " + rs.getString("capacity") +
-                        ", окно: " + (rs.getBoolean("window_view") ? "да" : "нет") + ")");
+                        ", окно: " + (rs.getBoolean("window_view") ? "да" : "нет") + ")";
+                allCabins.add(cabinItem);
+                cabinCombo.getItems().add(cabinItem);
             }
         } catch (SQLException e) {
             showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить данные: " + e.getMessage());
@@ -967,84 +1096,197 @@ public class MaritimeBookingApp extends Application {
         voyageCombo.setOnAction(e -> {
             if (voyageCombo.getValue() != null) {
                 String vesselId = voyageCombo.getValue().split("IMO: ")[1].replace(")", "");
+
+                // Находим соответствующее судно и устанавливаем его
                 vesselCombo.setValue(vesselCombo.getItems().stream()
                         .filter(item -> item.startsWith(vesselId))
                         .findFirst()
                         .orElse(null));
 
-                cabinCombo.setItems(FXCollections.observableArrayList(
-                        cabinCombo.getItems().stream()
-                                .filter(item -> item.contains("IMO: " + vesselId))
-                                .collect(java.util.stream.Collectors.toList())));
+                // Автоматическая подстановка каюты при выборе рейса
+                if (vesselCombo.getValue() != null) {
+                    String cabinVesselId = vesselCombo.getValue().split(" ")[0];
+                    ObservableList<String> filteredCabins = FXCollections.observableArrayList(
+                            allCabins.stream()
+                                    .filter(item -> item.contains("IMO: " + cabinVesselId))
+                                    .collect(java.util.stream.Collectors.toList()));
 
-                if (!cabinCombo.getItems().isEmpty()) {
-                    cabinCombo.setValue(cabinCombo.getItems().get(0));
+                    cabinCombo.setItems(filteredCabins);
+                    if (!filteredCabins.isEmpty()) {
+                        cabinCombo.setValue(filteredCabins.get(0));
+                    }
                 }
             }
         });
 
         TextField priceField = new TextField();
         priceField.setPromptText("Цена");
+
         ComboBox<String> paymentMethodCombo = new ComboBox<>();
         paymentMethodCombo.getItems().addAll("card", "cash");
         paymentMethodCombo.setPromptText("Способ оплаты");
+
         ComboBox<String> mealTypeCombo = new ComboBox<>();
         mealTypeCombo.getItems().addAll("no_meals", "breakfast", "half_board", "full_board", "all_inclusive",
                 "ultra_all_inclusive");
         mealTypeCombo.setPromptText("Тип питания");
+
         CheckBox insuranceCheck = new CheckBox("Страховка");
+
         TextField luggageField = new TextField();
         luggageField.setPromptText("Вес багажа (кг)");
+
         TextField purchaseDateField = new TextField();
         purchaseDateField.setPromptText("Дата покупки (ГГГГ-ММ-ДД)");
+        // Установка текущей даты в поле даты покупки
+        purchaseDateField.setText(java.time.LocalDate.now().toString());
+
         Button addBtn = new Button("Добавить клиента и билет");
         TableView<ObservableList<String>> table = new TableView<>();
         table.setPrefHeight(250);
+
         addBtn.setOnAction(e -> {
-            if (emailField.getText().isBlank()
-                    || !emailField.getText().matches("^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$")) {
-                showAlert(Alert.AlertType.ERROR, "Ошибка", "Введите корректный email!");
-                return;
+            // Очищаем предыдущие ошибки и стили
+            errorBox.getChildren().clear();
+            emailField.setStyle("");
+            lastNameField.setStyle("");
+            firstNameField.setStyle("");
+            middleNameField.setStyle("");
+            birthDateField.setStyle("");
+            passportField.setStyle("");
+            voyageCombo.setStyle("");
+            vesselCombo.setStyle("");
+            cabinCombo.setStyle("");
+            priceField.setStyle("");
+            paymentMethodCombo.setStyle("");
+            mealTypeCombo.setStyle("");
+            luggageField.setStyle("");
+            purchaseDateField.setStyle("");
+
+            // Список для ошибок
+            java.util.List<String> errors = new java.util.ArrayList<>();
+
+            // Валидация email
+            if (!Validator.isNotEmpty(emailField.getText())) {
+                errors.add("• Необходимо указать Email");
+                emailField.setStyle("-fx-border-color: red;");
+            } else if (!Validator.isValidEmail(emailField.getText())) {
+                errors.add("• Неверный формат Email");
+                emailField.setStyle("-fx-border-color: red;");
             }
-            if (lastNameField.getText().isBlank() || firstNameField.getText().isBlank()
-                    || passportField.getText().isBlank() || !passportField.getText().matches("^[1-9][0-9]{9}$")) {
-                showAlert(Alert.AlertType.ERROR, "Ошибка", "Заполните ФИО и серию паспорта (10 цифр)!");
-                return;
+
+            // Проверка уникальности email
+            if (Validator.isValidEmail(emailField.getText())) {
+                try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
+                    if (JDBCManager.checkCustomerExists(connection, emailField.getText())) {
+                        errors.add("• Клиент с таким Email уже существует");
+                        emailField.setStyle("-fx-border-color: red;");
+                    }
+                } catch (SQLException ex) {
+                    errors.add("• Ошибка проверки клиента: " + ex.getMessage());
+                }
             }
-            if (birthDateField.getText().isBlank() || !birthDateField.getText().matches("\\d{4}-\\d{2}-\\d{2}")) {
-                showAlert(Alert.AlertType.ERROR, "Ошибка", "Дата рождения должна быть в формате ГГГГ-ММ-ДД!");
-                return;
+
+            // Валидация фамилии
+            if (!Validator.isNotEmpty(lastNameField.getText())) {
+                errors.add("• Необходимо указать фамилию");
+                lastNameField.setStyle("-fx-border-color: red;");
+            } else if (!Validator.isAlphabetic(lastNameField.getText())) {
+                errors.add("• Фамилия должна содержать только буквы");
+                lastNameField.setStyle("-fx-border-color: red;");
             }
+
+            // Валидация имени
+            if (!Validator.isNotEmpty(firstNameField.getText())) {
+                errors.add("• Необходимо указать имя");
+                firstNameField.setStyle("-fx-border-color: red;");
+            } else if (!Validator.isAlphabetic(firstNameField.getText())) {
+                errors.add("• Имя должно содержать только буквы");
+                firstNameField.setStyle("-fx-border-color: red;");
+            }
+
+            // Валидация отчества
+            if (Validator.isNotEmpty(middleNameField.getText()) &&
+                    !Validator.isAlphabetic(middleNameField.getText())) {
+                errors.add("• Отчество должно содержать только буквы");
+                middleNameField.setStyle("-fx-border-color: red;");
+            } else {
+                middleNameField.setStyle("");
+            }
+
+            // Валидация даты рождения
+            if (!Validator.isValidDate(birthDateField.getText())) {
+                errors.add("• Дата рождения должна быть в формате ГГГГ-ММ-ДД");
+                birthDateField.setStyle("-fx-border-color: red;");
+            } else if (!Validator.isNotFutureDate(birthDateField.getText())) {
+                errors.add("• Дата рождения не может быть в будущем");
+                birthDateField.setStyle("-fx-border-color: red;");
+            }
+
+            // Валидация паспорта - ровно 10 цифр
+            if (!passportField.getText().matches("^\\d{10}$")) {
+                errors.add("• Серия паспорта должна содержать ровно 10 цифр");
+                passportField.setStyle("-fx-border-color: red;");
+            }
+
+            // Валидация рейса
             if (voyageCombo.getValue() == null) {
-                showAlert(Alert.AlertType.ERROR, "Ошибка", "Выберите рейс!");
-                return;
+                errors.add("• Необходимо выбрать рейс");
+                voyageCombo.setStyle("-fx-border-color: red;");
             }
+
+            // Валидация судна
             if (vesselCombo.getValue() == null) {
-                showAlert(Alert.AlertType.ERROR, "Ошибка", "Выберите судно!");
-                return;
+                errors.add("• Необходимо выбрать судно");
+                vesselCombo.setStyle("-fx-border-color: red;");
             }
+
+            // Валидация каюты
             if (cabinCombo.getValue() == null) {
-                showAlert(Alert.AlertType.ERROR, "Ошибка", "Выберите каюту!");
-                return;
+                errors.add("• Необходимо выбрать каюту");
+                cabinCombo.setStyle("-fx-border-color: red;");
             }
-            if (priceField.getText().isBlank() || !priceField.getText().matches("\\d+(\\.\\d+)?")) {
-                showAlert(Alert.AlertType.ERROR, "Ошибка", "Цена должна быть числом!");
-                return;
+
+            // Валидация цены
+            if (!Validator.isNumeric(priceField.getText())) {
+                errors.add("• Цена должна быть числом");
+                priceField.setStyle("-fx-border-color: red;");
             }
+
+            // Валидация способа оплаты
             if (paymentMethodCombo.getValue() == null) {
-                showAlert(Alert.AlertType.ERROR, "Ошибка", "Выберите способ оплаты!");
-                return;
+                errors.add("• Необходимо выбрать способ оплаты");
+                paymentMethodCombo.setStyle("-fx-border-color: red;");
             }
+
+            // Валидация типа питания
             if (mealTypeCombo.getValue() == null) {
-                showAlert(Alert.AlertType.ERROR, "Ошибка", "Выберите тип питания!");
-                return;
+                errors.add("• Необходимо выбрать тип питания");
+                mealTypeCombo.setStyle("-fx-border-color: red;");
             }
-            if (luggageField.getText().isBlank() || !luggageField.getText().matches("\\d+")) {
-                showAlert(Alert.AlertType.ERROR, "Ошибка", "Вес багажа должен быть целым числом!");
-                return;
+
+            // Валидация веса багажа
+            if (!Validator.isInteger(luggageField.getText())) {
+                errors.add("• Вес багажа должен быть целым числом");
+                luggageField.setStyle("-fx-border-color: red;");
             }
-            if (purchaseDateField.getText().isBlank() || !purchaseDateField.getText().matches("\\d{4}-\\d{2}-\\d{2}")) {
-                showAlert(Alert.AlertType.ERROR, "Ошибка", "Дата покупки должна быть в формате ГГГГ-ММ-ДД!");
+
+            // Валидация даты покупки
+            if (!Validator.isValidDate(purchaseDateField.getText())) {
+                errors.add("• Дата покупки должна быть в формате ГГГГ-ММ-ДД");
+                purchaseDateField.setStyle("-fx-border-color: red;");
+            } else if (!Validator.isNotFutureDate(purchaseDateField.getText())) {
+                errors.add("• Дата покупки не может быть в будущем");
+                purchaseDateField.setStyle("-fx-border-color: red;");
+            }
+
+            // Если есть ошибки, показываем их и прерываем выполнение
+            if (!errors.isEmpty()) {
+                for (String error : errors) {
+                    Label errorLabel = new Label(error);
+                    errorLabel.setStyle("-fx-text-fill: red; -fx-font-size: 12px;");
+                    errorBox.getChildren().add(errorLabel);
+                }
                 return;
             }
 
@@ -1071,21 +1313,64 @@ public class MaritimeBookingApp extends Application {
                             insuranceCheck.isSelected(),
                             Integer.parseInt(luggageField.getText()),
                             purchaseDateField.getText());
+
                     if (ticketId > 0) {
                         System.out.println("Inserted ticket with ID " + ticketId);
                     }
+
                     showAlert(Alert.AlertType.INFORMATION, "Успех", "Клиент и билет успешно добавлены!");
                     showTable("SELECT * FROM maritime_booking.customers", table);
+
+                    // Очищаем поля после успешного добавления
+                    emailField.clear();
+                    lastNameField.clear();
+                    firstNameField.clear();
+                    middleNameField.clear();
+                    birthDateField.setText(java.time.LocalDate.now().toString());
+                    passportField.clear();
+                    priceField.clear();
+                    paymentMethodCombo.setValue(null);
+                    mealTypeCombo.setValue(null);
+                    insuranceCheck.setSelected(false);
+                    luggageField.clear();
+                    purchaseDateField.setText(java.time.LocalDate.now().toString());
+
+                    // Не сбрасываем выбор рейса, судна и каюты для удобства
                 } catch (SQLException ex) {
-                    showAlert(Alert.AlertType.ERROR, "Ошибка", "Ошибка при добавлении: " + ex.getMessage());
+                    Label errorLabel = new Label("• " + ex.getMessage());
+                    errorLabel.setStyle("-fx-text-fill: red; -fx-font-size: 12px;");
+                    errorBox.getChildren().add(errorLabel);
                 }
             } catch (SQLException ex) {
-                showAlert(Alert.AlertType.ERROR, "Ошибка", "Ошибка подключения: " + ex.getMessage());
+                Label errorLabel = new Label("• " + ex.getMessage());
+                errorLabel.setStyle("-fx-text-fill: red; -fx-font-size: 12px;");
+                errorBox.getChildren().add(errorLabel);
             }
         });
-        VBox form = new VBox(10, label, emailField, lastNameField, firstNameField, middleNameField, birthDateField,
-                passportField, voyageLabel, voyageCombo, vesselLabel, vesselCombo, cabinLabel, cabinCombo, priceField,
-                paymentMethodCombo, mealTypeCombo, insuranceCheck, luggageField, purchaseDateField, addBtn);
+
+        VBox form = new VBox(10,
+                label,
+                emailField,
+                lastNameField,
+                firstNameField,
+                middleNameField,
+                birthDateField,
+                passportField,
+                voyageLabel,
+                voyageCombo,
+                vesselLabel,
+                vesselCombo,
+                cabinLabel,
+                cabinCombo,
+                priceField,
+                paymentMethodCombo,
+                mealTypeCombo,
+                insuranceCheck,
+                luggageField,
+                purchaseDateField,
+                errorBox,
+                addBtn);
+
         form.setAlignment(Pos.CENTER);
         form.setMaxWidth(350);
         VBox formWrapper = new VBox(form);
@@ -1117,6 +1402,11 @@ public class MaritimeBookingApp extends Application {
         ComboBox<String> vesselCombo = new ComboBox<>();
         vesselCombo.setPromptText("IMO судна");
 
+        // Замена обычного Label на VBox со списком ошибок
+        VBox errorBox = new VBox(5);
+        errorBox.setAlignment(Pos.CENTER_LEFT);
+        errorBox.setPadding(new Insets(5, 0, 5, 0));
+
         // Создаем таблицы для отображения
         Label voyagesLabel = new Label("Таблица рейсов:");
         TableView<ObservableList<String>> voyagesTable = new TableView<>();
@@ -1142,7 +1432,9 @@ public class MaritimeBookingApp extends Application {
                 vesselCombo.getItems().add(rs.getString("imo") + " (" + rs.getString("name") + ")");
             }
         } catch (SQLException e) {
-            showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить данные: " + e.getMessage());
+            Label errorLabel = new Label("• Не удалось загрузить данные: " + e.getMessage());
+            errorLabel.setStyle("-fx-text-fill: red; -fx-font-size: 12px;");
+            errorBox.getChildren().add(errorLabel);
         }
 
         voyageCombo.setOnAction(e -> {
@@ -1158,14 +1450,16 @@ public class MaritimeBookingApp extends Application {
                     String voyageId = voyageCombo.getValue().split(" ")[0];
                     String vesselId = vesselCombo.getValue().split(" ")[0];
 
-                    try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
+                    try (Connection _ = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
                         showTable("SELECT * FROM maritime_booking.tickets WHERE voyage_id = " + voyageId +
                                 " AND vessel_id = '" + vesselId + "'", ticketsTable);
                         showTable("SELECT * FROM maritime_booking.voyage_stages WHERE voyage_id = " + voyageId +
                                 " AND vessel_id = '" + vesselId + "'", stagesTable);
                     } catch (SQLException ex) {
-                        showAlert(Alert.AlertType.ERROR, "Ошибка",
-                                "Не удалось загрузить связанные данные: " + ex.getMessage());
+                        errorBox.getChildren().clear();
+                        Label errorLabel = new Label("• Не удалось загрузить связанные данные: " + ex.getMessage());
+                        errorLabel.setStyle("-fx-text-fill: red; -fx-font-size: 12px;");
+                        errorBox.getChildren().add(errorLabel);
                     }
                 }
             }
@@ -1179,8 +1473,22 @@ public class MaritimeBookingApp extends Application {
         showTable("SELECT * FROM maritime_booking.voyages", voyagesTable);
 
         deleteBtn.setOnAction(e -> {
+            // Очищаем предыдущие ошибки
+            errorBox.getChildren().clear();
+            voyageCombo.setStyle("");
+            vesselCombo.setStyle("");
+
             if (voyageCombo.getValue() == null || vesselCombo.getValue() == null) {
-                showAlert(Alert.AlertType.ERROR, "Ошибка", "Выберите рейс и судно!");
+                Label errorLabel = new Label("• Выберите рейс и судно!");
+                errorLabel.setStyle("-fx-text-fill: red; -fx-font-size: 12px;");
+                errorBox.getChildren().add(errorLabel);
+
+                if (voyageCombo.getValue() == null) {
+                    voyageCombo.setStyle("-fx-border-color: red;");
+                }
+                if (vesselCombo.getValue() == null) {
+                    vesselCombo.setStyle("-fx-border-color: red;");
+                }
                 return;
             }
 
@@ -1199,7 +1507,10 @@ public class MaritimeBookingApp extends Application {
                 try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
                     // Удаляем рейс
                     JDBCManager.deleteVoyage(connection, Integer.parseInt(voyageId), vesselId);
-                    showAlert(Alert.AlertType.INFORMATION, "Успех", "Рейс " + voyageId + " и всё связанное удалено!");
+
+                    Label successLabel = new Label("• Рейс " + voyageId + " и всё связанное удалено!");
+                    successLabel.setStyle("-fx-text-fill: green; -fx-font-size: 12px;");
+                    errorBox.getChildren().add(successLabel);
 
                     // Очищаем значения комбобоксов
                     voyageCombo.setValue(null);
@@ -1225,12 +1536,14 @@ public class MaritimeBookingApp extends Application {
                     ticketsLabel.setText("Таблица билетов выбранного рейса (после удаления)");
                     stagesLabel.setText("Таблица этапов выбранного рейса (после удаления)");
                 } catch (SQLException ex) {
-                    showAlert(Alert.AlertType.ERROR, "Ошибка", "Ошибка при удалении: " + ex.getMessage());
+                    Label errorLabel = new Label("• Ошибка при удалении: " + ex.getMessage());
+                    errorLabel.setStyle("-fx-text-fill: red; -fx-font-size: 12px;");
+                    errorBox.getChildren().add(errorLabel);
                 }
             }
         });
 
-        VBox form = new VBox(10, label, voyageLabel, voyageCombo, vesselLabel, vesselCombo, deleteBtn);
+        VBox form = new VBox(10, label, voyageLabel, voyageCombo, vesselLabel, vesselCombo, errorBox, deleteBtn);
         form.setAlignment(Pos.CENTER);
         form.setMaxWidth(350);
 
@@ -1261,6 +1574,11 @@ public class MaritimeBookingApp extends Application {
         Label dateLabel = new Label("Дата до (YYYY-MM-DD):");
         TextField dateField = new TextField();
         dateField.setPromptText("Дата");
+
+        // Замена обычного Label на VBox со списком ошибок
+        VBox errorBox = new VBox(5);
+        errorBox.setAlignment(Pos.CENTER_LEFT);
+        errorBox.setPadding(new Insets(5, 0, 5, 0));
 
         Button showFutureBtn = new Button("Показать будущие цены");
         Button updateBtn = new Button("Обновить цены");
@@ -1294,16 +1612,36 @@ public class MaritimeBookingApp extends Application {
         table.getColumns().add(dateCol);
 
         showFutureBtn.setOnAction(e -> {
+            // Очищаем предыдущие ошибки и сбрасываем стили полей
+            errorBox.getChildren().clear();
+            weightField.setStyle("");
+            dateField.setStyle("");
+
             String minWeight = weightField.getText().trim();
             String date = dateField.getText().trim();
+
+            boolean hasErrors = false;
+
             if (minWeight.isEmpty() || !minWeight.matches("\\d+(\\.\\d+)?")) {
-                showAlert(Alert.AlertType.ERROR, "Ошибка", "Введите корректный вес!");
-                return;
+                Label errorLabel = new Label("• Введите корректный вес!");
+                errorLabel.setStyle("-fx-text-fill: red; -fx-font-size: 12px;");
+                errorBox.getChildren().add(errorLabel);
+                weightField.setStyle("-fx-border-color: red;");
+                hasErrors = true;
             }
+
             if (date.isEmpty() || !date.matches("\\d{4}-\\d{2}-\\d{2}")) {
-                showAlert(Alert.AlertType.ERROR, "Ошибка", "Введите корректную дату!");
+                Label errorLabel = new Label("• Введите корректную дату!");
+                errorLabel.setStyle("-fx-text-fill: red; -fx-font-size: 12px;");
+                errorBox.getChildren().add(errorLabel);
+                dateField.setStyle("-fx-border-color: red;");
+                hasErrors = true;
+            }
+
+            if (hasErrors) {
                 return;
             }
+
             table.getItems().clear();
             futureCol.setText("Будущая обновленная цена");
             try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
@@ -1322,31 +1660,60 @@ public class MaritimeBookingApp extends Application {
                 }
                 table.setItems(data);
                 if (rowCount == 0) {
-                    showAlert(Alert.AlertType.INFORMATION, "Нет билетов", "Не найдено билетов по заданным условиям.");
+                    Label infoLabel = new Label("• Не найдено билетов по заданным условиям");
+                    infoLabel.setStyle("-fx-text-fill: blue; -fx-font-size: 12px;");
+                    errorBox.getChildren().add(infoLabel);
                 }
             } catch (SQLException ex) {
-                showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить данные: " + ex.getMessage());
+                Label errorLabel = new Label("• Не удалось загрузить данные: " + ex.getMessage());
+                errorLabel.setStyle("-fx-text-fill: red; -fx-font-size: 12px;");
+                errorBox.getChildren().add(errorLabel);
             }
         });
 
         updateBtn.setOnAction(e -> {
+            // Очищаем предыдущие ошибки и сбрасываем стили полей
+            errorBox.getChildren().clear();
+            weightField.setStyle("");
+            dateField.setStyle("");
+
             String minWeight = weightField.getText().trim();
             String date = dateField.getText().trim();
+
+            boolean hasErrors = false;
+
             if (minWeight.isEmpty() || !minWeight.matches("\\d+(\\.\\d+)?")) {
-                showAlert(Alert.AlertType.ERROR, "Ошибка", "Введите корректный вес!");
-                return;
+                Label errorLabel = new Label("• Введите корректный вес!");
+                errorLabel.setStyle("-fx-text-fill: red; -fx-font-size: 12px;");
+                errorBox.getChildren().add(errorLabel);
+                weightField.setStyle("-fx-border-color: red;");
+                hasErrors = true;
             }
+
             if (date.isEmpty() || !date.matches("\\d{4}-\\d{2}-\\d{2}")) {
-                showAlert(Alert.AlertType.ERROR, "Ошибка", "Введите корректную дату!");
+                Label errorLabel = new Label("• Введите корректную дату!");
+                errorLabel.setStyle("-fx-text-fill: red; -fx-font-size: 12px;");
+                errorBox.getChildren().add(errorLabel);
+                dateField.setStyle("-fx-border-color: red;");
+                hasErrors = true;
+            }
+
+            if (hasErrors) {
                 return;
             }
+
             table.getItems().clear();
             futureCol.setText("Обновленная цена");
             try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
                 JDBCManager.updateLuggagePrice(connection, Double.parseDouble(minWeight), date);
-                showAlert(Alert.AlertType.INFORMATION, "Успех", "Цены обновлены!");
+
+                Label successLabel = new Label("• Цены успешно обновлены!");
+                successLabel.setStyle("-fx-text-fill: green; -fx-font-size: 12px;");
+                errorBox.getChildren().add(successLabel);
+
                 var rs = JDBCManager.getUpdatedLuggageTickets(connection, Double.parseDouble(minWeight), date);
                 ObservableList<ObservableList<String>> data = FXCollections.observableArrayList();
+                int rowCount = 0;
                 while (rs.next()) {
                     ObservableList<String> row = FXCollections.observableArrayList();
                     row.add(rs.getString("id"));
@@ -1355,14 +1722,23 @@ public class MaritimeBookingApp extends Application {
                     row.add(rs.getString("price")); // После обновления текущая цена = обновленная
                     row.add(rs.getString("purchase_date"));
                     data.add(row);
+                    rowCount++;
                 }
                 table.setItems(data);
+
+                if (rowCount == 0) {
+                    Label infoLabel = new Label("• Не найдено билетов, подходящих для обновления");
+                    infoLabel.setStyle("-fx-text-fill: blue; -fx-font-size: 12px;");
+                    errorBox.getChildren().add(infoLabel);
+                }
             } catch (SQLException ex) {
-                showAlert(Alert.AlertType.ERROR, "Ошибка", "Ошибка обновления: " + ex.getMessage());
+                Label errorLabel = new Label("• Ошибка обновления: " + ex.getMessage());
+                errorLabel.setStyle("-fx-text-fill: red; -fx-font-size: 12px;");
+                errorBox.getChildren().add(errorLabel);
             }
         });
 
-        VBox form = new VBox(10, weightLabel, weightField, dateLabel, dateField, buttonBox);
+        VBox form = new VBox(10, weightLabel, weightField, dateLabel, dateField, errorBox, buttonBox);
         form.setAlignment(Pos.CENTER);
         form.setMaxWidth(350);
 

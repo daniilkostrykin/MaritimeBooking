@@ -4,8 +4,6 @@ import org.example.entity.Customer;
 import org.example.util.HibernateUtil;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
-import org.hibernate.query.Query;
-import java.time.LocalDate;
 import java.util.List;
 
 public class CustomerDAO {
