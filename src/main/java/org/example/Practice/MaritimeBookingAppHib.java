@@ -12,7 +12,6 @@ import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
 import java.sql.Connection;
 import java.sql.DriverManager;
-import java.sql.ResultSet;
 import java.sql.SQLException;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -27,7 +26,8 @@ import org.example.entity.*;
 import org.example.util.HibernateUtil;
 import java.util.List;
 import org.hibernate.Session;
-import org.hibernate.query.Query;
+import java.math.BigDecimal;
+import java.time.LocalDate;
 
 public class MaritimeBookingAppHib extends Application {
     private static final String PROTOCOL = "jdbc:postgresql://";
@@ -196,6 +196,8 @@ public class MaritimeBookingAppHib extends Application {
         VoyageDAO voyageDAO = new VoyageDAO();
         VesselDAO vesselDAO = new VesselDAO();
         CabinDAO cabinDAO = new CabinDAO();
+        CustomerDAO customerDAO = new CustomerDAO();
+        TicketDAO ticketDAO = new TicketDAO();
 
         // Получаю активные рейсы через VoyageDAO
         List<Voyage> activeVoyages = voyageDAO.findByStatus("active");
@@ -306,22 +308,49 @@ public class MaritimeBookingAppHib extends Application {
                 return;
             }
 
-            try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
+            try {
                 String voyageId = voyageCombo.getValue().split(" ")[0];
                 String vesselId = vesselCombo.getValue().split(" ")[0];
                 String cabinId = cabinCombo.getValue().split(" ")[0];
+                String email = emailField.getText();
 
-                JDBCManager.buyTicket(connection,
-                        emailField.getText(),
-                        Integer.parseInt(voyageId),
-                        vesselId,
-                        Integer.parseInt(cabinId),
-                        Double.parseDouble(priceField.getText()),
-                        paymentMethodCombo.getValue(),
-                        mealTypeCombo.getValue(),
-                        insuranceCheck.isSelected(),
-                        Double.parseDouble(luggageField.getText()),
-                        purchaseDateField.getText());
+                // Получаем объекты для связей
+                Customer customer = customerDAO.findById(email);
+                if (customer == null) {
+                    showAlert(Alert.AlertType.ERROR, "Ошибка", "Клиент с указанным email не найден!");
+                    return;
+                }
+
+                VoyageId voyageIdObj = new VoyageId();
+                voyageIdObj.setId(Long.parseLong(voyageId));
+                voyageIdObj.setVesselId(vesselId);
+                Voyage voyage = voyageDAO.findById(voyageIdObj);
+
+                Cabin cabin = cabinDAO.findById(Long.parseLong(cabinId), vesselId);
+
+                // Создаем новый билет
+                Ticket ticket = new Ticket();
+                ticket.setVoyageId(Long.parseLong(voyageId));
+                ticket.setVesselId(vesselId);
+                ticket.setCabinId(Long.parseLong(cabinId));
+                ticket.setCustomer(customer);
+                ticket.setPrice(BigDecimal.valueOf(Double.parseDouble(priceField.getText())));
+
+                // Устанавливаем тип оплаты
+                Ticket.PaymentMethod paymentMethod = Ticket.PaymentMethod.valueOf(paymentMethodCombo.getValue());
+                ticket.setPaymentMethod(paymentMethod);
+
+                // Устанавливаем тип питания
+                Ticket.MealType mealType = Ticket.MealType.valueOf(mealTypeCombo.getValue());
+                ticket.setMealType(mealType);
+
+                ticket.setInsurance(insuranceCheck.isSelected());
+                ticket.setLuggageWeight(Integer.parseInt(luggageField.getText()));
+                ticket.setPurchaseDate(LocalDate.parse(purchaseDateField.getText()));
+
+                // Сохраняем билет
+                ticketDAO.save(ticket);
+
                 showAlert(Alert.AlertType.INFORMATION, "Success", "Ticket purchased successfully!");
                 emailField.clear();
                 voyageCombo.setValue(null);
@@ -333,7 +362,7 @@ public class MaritimeBookingAppHib extends Application {
                 insuranceCheck.setSelected(false);
                 luggageField.clear();
                 purchaseDateField.clear();
-            } catch (SQLException ex1) {
+            } catch (Exception ex1) {
                 showAlert(Alert.AlertType.ERROR, "Error", "Failed to purchase ticket: " + ex1.getMessage());
             }
         });
@@ -466,6 +495,9 @@ public class MaritimeBookingAppHib extends Application {
 
         Button addClientBtn = new Button("Добавить клиента");
 
+        // Используем CustomerDAO для добавления клиента
+        CustomerDAO customerDAO = new CustomerDAO();
+
         addClientBtn.setOnAction(e -> {
             errorLabel.setText("");
             boolean valid = true;
@@ -504,14 +536,20 @@ public class MaritimeBookingAppHib extends Application {
                 errorLabel.setText(errors.toString());
                 return;
             }
-            try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
-                JDBCManager.addClient(connection,
-                        lastNameField.getText(),
-                        firstNameField.getText(),
-                        middleNameField.getText(),
-                        Long.parseLong(passportField.getText()),
-                        java.sql.Date.valueOf(birthDateField.getText()),
-                        emailField.getText());
+
+            try {
+                // Создаем нового клиента
+                Customer customer = new Customer();
+                customer.setEmail(emailField.getText());
+                customer.setLastName(lastNameField.getText());
+                customer.setFirstName(firstNameField.getText());
+                customer.setMiddleName(middleNameField.getText());
+                customer.setBirthDate(LocalDate.parse(birthDateField.getText()));
+                customer.setPassportSeries(passportField.getText());
+
+                // Сохраняем клиента
+                customerDAO.save(customer);
+
                 showAlert(Alert.AlertType.INFORMATION, "Успех", "Клиент успешно добавлен!");
                 emailField.clear();
                 lastNameField.clear();
@@ -519,7 +557,7 @@ public class MaritimeBookingAppHib extends Application {
                 middleNameField.clear();
                 birthDateField.clear();
                 passportField.clear();
-            } catch (SQLException ex1) {
+            } catch (Exception ex1) {
                 showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось добавить клиента: " + ex1.getMessage());
             }
         });
@@ -679,13 +717,14 @@ public class MaritimeBookingAppHib extends Application {
         ComboBox<String> tablesCombo = new ComboBox<>();
         TableView<ObservableList<String>> tableView = new TableView<>();
 
-        try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
-            var meta = connection.getMetaData();
-            var rs = meta.getTables(null, "maritime_booking", "%", new String[] { "TABLE" });
-            while (rs.next()) {
-                tablesCombo.getItems().add(rs.getString("TABLE_NAME"));
+        // Получаем список таблиц через HibernateUtil и метаданные
+        try (Session session = HibernateUtil.getSessionFactory().openSession()) {
+            // Получаем список классов-сущностей
+            String[] entities = { "Customer", "Vessel", "Voyage", "Cabin", "Ticket", "Port", "VoyageStage" };
+            for (String entity : entities) {
+                tablesCombo.getItems().add(entity.toLowerCase() + "s"); // Добавляем имя таблицы
             }
-        } catch (SQLException e) {
+        } catch (Exception e) {
             showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось получить список таблиц: " + e.getMessage());
         }
 
@@ -697,12 +736,25 @@ public class MaritimeBookingAppHib extends Application {
             tableView.getColumns().clear();
             tableView.getItems().clear();
 
-            try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
-                var stmt = connection.createStatement();
-                var rs = stmt.executeQuery("SELECT * FROM maritime_booking." + tableName + " LIMIT 100");
-                var rsmd = rs.getMetaData();
+            try (Session session = HibernateUtil.getSessionFactory().openSession()) {
+                // Используем нативный SQL-запрос через Hibernate
+                String query = "SELECT * FROM maritime_booking." + tableName + " LIMIT 100";
+                List<Object[]> results = session.createNativeQuery(query, Object[].class).list();
+
+                if (results.isEmpty()) {
+                    return;
+                }
+
+                // Получаем метаданные для создания колонок
+                java.sql.ResultSet rs = session.doReturningWork(conn -> {
+                    java.sql.Statement stmt = conn.createStatement();
+                    return stmt.executeQuery("SELECT * FROM maritime_booking." + tableName + " LIMIT 0");
+                });
+
+                java.sql.ResultSetMetaData rsmd = rs.getMetaData();
                 int columnCount = rsmd.getColumnCount();
 
+                // Создаем колонки
                 for (int i = 1; i <= columnCount; i++) {
                     final int colIndex = i - 1;
                     TableColumn<ObservableList<String>, String> col = new TableColumn<>(rsmd.getColumnName(i));
@@ -711,14 +763,15 @@ public class MaritimeBookingAppHib extends Application {
                     tableView.getColumns().add(col);
                 }
 
-                while (rs.next()) {
-                    ObservableList<String> row = FXCollections.observableArrayList();
-                    for (int i = 1; i <= columnCount; i++) {
-                        row.add(rs.getString(i));
+                // Заполняем данными
+                for (Object[] row : results) {
+                    ObservableList<String> rowData = FXCollections.observableArrayList();
+                    for (Object cell : row) {
+                        rowData.add(cell == null ? "" : cell.toString());
                     }
-                    tableView.getItems().add(row);
+                    tableView.getItems().add(rowData);
                 }
-            } catch (SQLException e) {
+            } catch (Exception e) {
                 showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить данные: " + e.getMessage());
             }
         });
@@ -806,15 +859,12 @@ public class MaritimeBookingAppHib extends Application {
         ComboBox<String> countryCombo = new ComboBox<>();
         countryCombo.setPromptText("Страна");
 
-        // Получаем список стран с помощью PortDAO или используем альтернативный подход
+        // Используем PortDAO для получения списка стран
+        PortDAO portDAO = new PortDAO();
         try {
-            // Пока используем JDBC, так как у нас нет готового метода в DAO
-            // В идеале тут нужно создать PortDAO с методом getCountriesWithInsuredTickets
-            try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
-                var rs = JDBCManager.getCountriesWithInsuredTickets(connection);
-                while (rs.next()) {
-                    countryCombo.getItems().add(rs.getString("country"));
-                }
+            List<String> countries = portDAO.getCountriesWithInsuredTickets();
+            for (String country : countries) {
+                countryCombo.getItems().add(country);
             }
         } catch (Exception e) {
             showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить список стран: " + e.getMessage());
@@ -900,25 +950,33 @@ public class MaritimeBookingAppHib extends Application {
         ComboBox<String> cabinCombo = new ComboBox<>();
         cabinCombo.setPromptText("ID каюты");
 
-        try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
-            var rs = JDBCManager.getActiveVoyages(connection);
-            while (rs.next()) {
-                voyageCombo.getItems().add(rs.getString("id") + " (IMO: " + rs.getString("vessel_id") + ")");
+        // Используем VoyageDAO, VesselDAO и CabinDAO вместо прямых запросов
+        VoyageDAO voyageDAO = new VoyageDAO();
+        VesselDAO vesselDAO = new VesselDAO();
+        CabinDAO cabinDAO = new CabinDAO();
+
+        try {
+            // Получаем активные рейсы
+            List<Voyage> activeVoyages = voyageDAO.findByStatus("active");
+            for (Voyage voyage : activeVoyages) {
+                voyageCombo.getItems().add(voyage.getId() + " (IMO: " + voyage.getVesselId() + ")");
             }
 
-            rs = JDBCManager.getVessels(connection);
-            while (rs.next()) {
-                vesselCombo.getItems().add(rs.getString("imo") + " (" + rs.getString("name") + ")");
+            // Получаем список судов
+            List<Vessel> vessels = vesselDAO.findAll();
+            for (Vessel vessel : vessels) {
+                vesselCombo.getItems().add(vessel.getImo() + " (" + vessel.getName() + ")");
             }
 
-            rs = JDBCManager.getCabins(connection);
-            while (rs.next()) {
-                cabinCombo.getItems().add(rs.getString("id") + " (IMO: " + rs.getString("vessel_id") +
-                        ", категория: " + rs.getString("category") +
-                        ", вместимость: " + rs.getString("capacity") +
-                        ", окно: " + (rs.getBoolean("window_view") ? "да" : "нет") + ")");
+            // Получаем список кают
+            List<Cabin> cabins = cabinDAO.findAll();
+            for (Cabin cabin : cabins) {
+                cabinCombo.getItems().add(cabin.getId() + " (IMO: " + cabin.getVessel().getImo() +
+                        ", категория: " + cabin.getCategory() +
+                        ", вместимость: " + cabin.getCapacity() +
+                        ", окно: " + (cabin.getWindowView() ? "да" : "нет") + ")");
             }
-        } catch (SQLException e) {
+        } catch (Exception e) {
             showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить данные: " + e.getMessage());
         }
 
@@ -958,6 +1016,11 @@ public class MaritimeBookingAppHib extends Application {
         Button addBtn = new Button("Добавить клиента и билет");
         TableView<ObservableList<String>> table = new TableView<>();
         table.setPrefHeight(250);
+
+        // Используем DAO для добавления клиента и билета
+        CustomerDAO customerDAO = new CustomerDAO();
+        TicketDAO ticketDAO = new TicketDAO();
+
         addBtn.setOnAction(e -> {
             if (emailField.getText().isBlank()
                     || !emailField.getText().matches("^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$")) {
@@ -1010,45 +1073,74 @@ public class MaritimeBookingAppHib extends Application {
             String vesselId = vesselCombo.getValue().split(" ")[0];
             String cabinId = cabinCombo.getValue().split(" ")[0];
 
-            try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
-                connection.setAutoCommit(false);
-                try {
-                    String sql1 = "INSERT INTO maritime_booking.customers (email, last_name, first_name, middle_name, birth_date, passport_series) VALUES (?, ?, ?, ?, ?, ?)";
-                    var ps1 = connection.prepareStatement(sql1);
-                    ps1.setString(1, emailField.getText());
-                    ps1.setString(2, lastNameField.getText());
-                    ps1.setString(3, firstNameField.getText());
-                    ps1.setString(4, middleNameField.getText());
-                    ps1.setDate(5, java.sql.Date.valueOf(birthDateField.getText()));
-                    ps1.setString(6, passportField.getText());
-                    ps1.executeUpdate();
-                    String sql2 = "INSERT INTO maritime_booking.tickets (email, voyage_id, vessel_id, cabin_id, price, payment_method, meal_type, insurance, luggage_weight, purchase_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id";
-                    var ps2 = connection.prepareStatement(sql2);
-                    ps2.setString(1, emailField.getText());
-                    ps2.setInt(2, Integer.parseInt(voyageId));
-                    ps2.setString(3, vesselId);
-                    ps2.setInt(4, Integer.parseInt(cabinId));
-                    ps2.setDouble(5, Double.parseDouble(priceField.getText()));
-                    ps2.setString(6, paymentMethodCombo.getValue());
-                    ps2.setString(7, mealTypeCombo.getValue());
-                    ps2.setBoolean(8, insuranceCheck.isSelected());
-                    ps2.setInt(9, Integer.parseInt(luggageField.getText()));
-                    ps2.setDate(10, java.sql.Date.valueOf(purchaseDateField.getText()));
-                    ResultSet rs = ps2.executeQuery();
-                    if (rs.next()) {
-                        System.out.println("Inserted ticket with ID " + rs.getInt(1));
-                    }
-                    connection.commit();
-                    showAlert(Alert.AlertType.INFORMATION, "Успех", "Клиент и билет успешно добавлены!");
-                    showTable("SELECT * FROM maritime_booking.customers", table);
-                } catch (SQLException ex) {
-                    connection.rollback();
-                    showAlert(Alert.AlertType.ERROR, "Ошибка", "Ошибка при добавлении: " + ex.getMessage());
+            try {
+                // Создаем объект клиента
+                Customer customer = new Customer();
+                customer.setEmail(emailField.getText());
+                customer.setLastName(lastNameField.getText());
+                customer.setFirstName(firstNameField.getText());
+                customer.setMiddleName(middleNameField.getText());
+                customer.setBirthDate(LocalDate.parse(birthDateField.getText()));
+                customer.setPassportSeries(passportField.getText());
+
+                // Создаем объект билета
+                Ticket ticket = new Ticket();
+                ticket.setCustomer(customer);
+                // Получаем рейс
+                Voyage voyage = voyageDAO.findById(Long.parseLong(voyageId), vesselId);
+                ticket.setVoyage(voyage);
+                ticket.setVoyageId(voyage.getId());
+                ticket.setVesselId(vesselId);
+                ticket.setCabinId(Long.parseLong(cabinId));
+                ticket.setPrice(new BigDecimal(priceField.getText()));
+                ticket.setPaymentMethod(Ticket.PaymentMethod.valueOf(paymentMethodCombo.getValue()));
+                ticket.setMealType(Ticket.MealType.valueOf(mealTypeCombo.getValue()));
+                ticket.setInsurance(insuranceCheck.isSelected());
+                ticket.setLuggageWeight(Integer.parseInt(luggageField.getText()));
+                ticket.setPurchaseDate(LocalDate.parse(purchaseDateField.getText()));
+
+                // Сохраняем клиента и билет
+                customerDAO.save(customer);
+                ticketDAO.save(ticket);
+
+                showAlert(Alert.AlertType.INFORMATION, "Успех", "Клиент и билет успешно добавлены!");
+
+                // Обновляем таблицу данных для отображения через нативный запрос
+                Session session = HibernateUtil.getSessionFactory().openSession();
+                String sql = "SELECT * FROM maritime_booking.customers";
+                List<Object[]> results = session.createNativeQuery(sql, Object[].class).list();
+
+                // Очищаем и настраиваем колонки таблицы если необходимо
+                if (table.getColumns().isEmpty()) {
+                    TableColumn<ObservableList<String>, String> emailCol = new TableColumn<>("Email");
+                    emailCol.setCellValueFactory(
+                            data -> new javafx.beans.property.SimpleStringProperty(data.getValue().get(0)));
+                    TableColumn<ObservableList<String>, String> lastNameCol = new TableColumn<>("Фамилия");
+                    lastNameCol.setCellValueFactory(
+                            data -> new javafx.beans.property.SimpleStringProperty(data.getValue().get(1)));
+                    TableColumn<ObservableList<String>, String> firstNameCol = new TableColumn<>("Имя");
+                    firstNameCol.setCellValueFactory(
+                            data -> new javafx.beans.property.SimpleStringProperty(data.getValue().get(2)));
+
+                    table.getColumns().addAll(emailCol, lastNameCol, firstNameCol);
                 }
-            } catch (SQLException ex) {
-                showAlert(Alert.AlertType.ERROR, "Ошибка", "Ошибка подключения: " + ex.getMessage());
+
+                ObservableList<ObservableList<String>> data = FXCollections.observableArrayList();
+                for (Object[] row : results) {
+                    ObservableList<String> tableRow = FXCollections.observableArrayList();
+                    for (Object cell : row) {
+                        tableRow.add(cell == null ? "" : cell.toString());
+                    }
+                    data.add(tableRow);
+                }
+                table.setItems(data);
+                session.close();
+
+            } catch (Exception ex) {
+                showAlert(Alert.AlertType.ERROR, "Ошибка", "Ошибка при добавлении: " + ex.getMessage());
             }
         });
+
         VBox form = new VBox(10, label, emailField, lastNameField, firstNameField, middleNameField, birthDateField,
                 passportField, voyageLabel, voyageCombo, vesselLabel, vesselCombo, cabinLabel, cabinCombo, priceField,
                 paymentMethodCombo, mealTypeCombo, insuranceCheck, luggageField, purchaseDateField, addBtn);
@@ -1083,18 +1175,26 @@ public class MaritimeBookingAppHib extends Application {
         ComboBox<String> vesselCombo = new ComboBox<>();
         vesselCombo.setPromptText("IMO судна");
 
-        try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
-            var rs = JDBCManager.getVoyagesWithVessels(connection);
-            while (rs.next()) {
-                voyageCombo.getItems().add(rs.getString("id") + " (IMO: " + rs.getString("vessel_id") +
-                        " - " + rs.getString("name") + ")");
+        // Используем VoyageDAO и VesselDAO вместо прямых запросов
+        VoyageDAO voyageDAO = new VoyageDAO();
+        VesselDAO vesselDAO = new VesselDAO();
+
+        try {
+            // Получаем рейсы с судами
+            List<Object[]> voyagesWithVessels = voyageDAO.getVoyageWithVessels();
+            for (Object[] row : voyagesWithVessels) {
+                Long id = (Long) row[0];
+                String vesselId = (String) row[1];
+                String vesselName = (String) row[2];
+                voyageCombo.getItems().add(id + " (IMO: " + vesselId + " - " + vesselName + ")");
             }
 
-            rs = JDBCManager.getVessels(connection);
-            while (rs.next()) {
-                vesselCombo.getItems().add(rs.getString("imo") + " (" + rs.getString("name") + ")");
+            // Получаем список судов
+            List<Vessel> vessels = vesselDAO.findAll();
+            for (Vessel vessel : vessels) {
+                vesselCombo.getItems().add(vessel.getImo() + " (" + vessel.getName() + ")");
             }
-        } catch (SQLException e) {
+        } catch (Exception e) {
             showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить данные: " + e.getMessage());
         }
 
@@ -1124,22 +1224,59 @@ public class MaritimeBookingAppHib extends Application {
             String voyageId = voyageCombo.getValue().split(" ")[0];
             String vesselId = vesselCombo.getValue().split(" ")[0];
 
-            try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
-                JDBCManager.deleteVoyage(connection, Integer.parseInt(voyageId), vesselId);
+            try {
+                // Удаляем рейс и всё связанное с ним через DAO
+                // Для каскадного удаления можно использовать Hibernate аннотации в сущностях,
+                // либо удалять вручную в правильном порядке
+                voyageDAO.delete(Long.parseLong(voyageId), vesselId);
+
                 showAlert(Alert.AlertType.INFORMATION, "Успех", "Рейс и всё связанное удалено!");
 
+                // Обновляем список рейсов
                 voyageCombo.setValue(null);
                 vesselCombo.setValue(null);
-
                 voyageCombo.getItems().clear();
-                var rs = JDBCManager.getVoyagesWithVessels(connection);
-                while (rs.next()) {
-                    voyageCombo.getItems().add(rs.getString("id") + " (IMO: " + rs.getString("vessel_id") +
-                            " - " + rs.getString("name") + ")");
+
+                List<Object[]> updatedVoyagesWithVessels = voyageDAO.getVoyageWithVessels();
+                for (Object[] row : updatedVoyagesWithVessels) {
+                    Long id = (Long) row[0];
+                    String vId = (String) row[1];
+                    String vName = (String) row[2];
+                    voyageCombo.getItems().add(id + " (IMO: " + vId + " - " + vName + ")");
                 }
 
-                showTable("SELECT * FROM maritime_booking.voyages", table);
-            } catch (SQLException ex) {
+                // Обновляем таблицу через Hibernate
+                Session session = HibernateUtil.getSessionFactory().openSession();
+                List<Object[]> results = session
+                        .createNativeQuery("SELECT * FROM maritime_booking.voyages", Object[].class).list();
+
+                // Если таблица пустая, настраиваем колонки
+                if (table.getColumns().isEmpty()) {
+                    TableColumn<ObservableList<String>, String> idCol = new TableColumn<>("ID");
+                    idCol.setCellValueFactory(
+                            data -> new javafx.beans.property.SimpleStringProperty(data.getValue().get(0)));
+                    TableColumn<ObservableList<String>, String> vesselCol = new TableColumn<>("Судно (IMO)");
+                    vesselCol.setCellValueFactory(
+                            data -> new javafx.beans.property.SimpleStringProperty(data.getValue().get(1)));
+                    TableColumn<ObservableList<String>, String> statusCol = new TableColumn<>("Статус");
+                    statusCol.setCellValueFactory(
+                            data -> new javafx.beans.property.SimpleStringProperty(data.getValue().get(2)));
+
+                    table.getColumns().addAll(idCol, vesselCol, statusCol);
+                }
+
+                ObservableList<ObservableList<String>> data = FXCollections.observableArrayList();
+                for (Object[] row : results) {
+                    ObservableList<String> tableRow = FXCollections.observableArrayList();
+                    for (Object cell : row) {
+                        tableRow.add(cell == null ? "" : cell.toString());
+                    }
+                    data.add(tableRow);
+                }
+                table.setItems(data);
+                session.close();
+
+            } catch (Exception ex) {
                 showAlert(Alert.AlertType.ERROR, "Ошибка", "Ошибка при удалении: " + ex.getMessage());
             }
         });
@@ -1199,6 +1336,9 @@ public class MaritimeBookingAppHib extends Application {
         table.getColumns().add(futureCol);
         table.getColumns().add(dateCol);
 
+        // Используем TicketDAO
+        TicketDAO ticketDAO = new TicketDAO();
+
         showFutureBtn.setOnAction(e -> {
             String minWeight = weightField.getText().trim();
             String date = dateField.getText().trim();
@@ -1212,38 +1352,46 @@ public class MaritimeBookingAppHib extends Application {
             }
             table.getItems().clear();
             futureCol.setText("Будущая обновленная цена");
-            try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
-                String sql = "SELECT t.id, t.luggage_weight, t.price, " +
-                        "t.price + (t.luggage_weight - ?) * 1000 as updated_price, t.purchase_date " +
-                        "FROM maritime_booking.tickets t " +
-                        "WHERE t.purchase_date < CAST(? AS date) AND t.luggage_weight > ? " +
-                        "AND EXISTS (SELECT 1 FROM maritime_booking.voyages v " +
-                        "WHERE t.voyage_id = v.id AND t.vessel_id = v.vessel_id AND v.status = 'active') " +
-                        "AND EXISTS (SELECT 1 FROM maritime_booking.customers c WHERE t.email = c.email) " +
-                        "ORDER BY t.id";
-                var ps = connection.prepareStatement(sql);
-                ps.setDouble(1, Double.parseDouble(minWeight));
-                ps.setString(2, date);
-                ps.setDouble(3, Double.parseDouble(minWeight));
-                var rs = ps.executeQuery();
-                ObservableList<ObservableList<String>> data = FXCollections.observableArrayList();
-                int rowCount = 0;
-                while (rs.next()) {
-                    ObservableList<String> row = FXCollections.observableArrayList();
-                    row.add(rs.getString("id"));
-                    row.add(rs.getString("luggage_weight"));
-                    row.add(rs.getString("price"));
-                    row.add(rs.getString("updated_price"));
-                    row.add(rs.getString("purchase_date"));
-                    data.add(row);
-                    rowCount++;
+
+            try {
+                LocalDate parseDate = LocalDate.parse(date);
+
+                try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
+                    String sql = "SELECT t.id, t.luggage_weight, t.price, " +
+                            "t.price + (t.luggage_weight - ?) * 1000 as updated_price, t.purchase_date " +
+                            "FROM maritime_booking.tickets t " +
+                            "WHERE t.purchase_date < CAST(? AS date) AND t.luggage_weight > ? " +
+                            "AND EXISTS (SELECT 1 FROM maritime_booking.voyages v " +
+                            "WHERE t.voyage_id = v.id AND t.vessel_id = v.vessel_id AND v.status = 'active') " +
+                            "AND EXISTS (SELECT 1 FROM maritime_booking.customers c WHERE t.email = c.email) " +
+                            "ORDER BY t.id";
+                    var ps = connection.prepareStatement(sql);
+                    ps.setDouble(1, Double.parseDouble(minWeight));
+                    ps.setString(2, date);
+                    ps.setDouble(3, Double.parseDouble(minWeight));
+                    var rs = ps.executeQuery();
+                    ObservableList<ObservableList<String>> data = FXCollections.observableArrayList();
+                    int rowCount = 0;
+                    while (rs.next()) {
+                        ObservableList<String> row = FXCollections.observableArrayList();
+                        row.add(rs.getString("id"));
+                        row.add(rs.getString("luggage_weight"));
+                        row.add(rs.getString("price"));
+                        row.add(rs.getString("updated_price"));
+                        row.add(rs.getString("purchase_date"));
+                        data.add(row);
+                        rowCount++;
+                    }
+                    table.setItems(data);
+                    if (rowCount == 0) {
+                        showAlert(Alert.AlertType.INFORMATION, "Нет билетов",
+                                "Не найдено билетов по заданным условиям.");
+                    }
+                } catch (SQLException ex) {
+                    showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить данные: " + ex.getMessage());
                 }
-                table.setItems(data);
-                if (rowCount == 0) {
-                    showAlert(Alert.AlertType.INFORMATION, "Нет билетов", "Не найдено билетов по заданным условиям.");
-                }
-            } catch (SQLException ex) {
-                showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить данные: " + ex.getMessage());
+            } catch (Exception ex) {
+                showAlert(Alert.AlertType.ERROR, "Ошибка", "Некорректная дата: " + ex.getMessage());
             }
         });
 

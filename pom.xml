@@ -38,6 +38,13 @@
             <artifactId>c3p0</artifactId>
             <version>0.9.5.5</version>
         </dependency>
+        
+        <!-- mchange-commons-java для c3p0 -->
+        <dependency>
+            <groupId>com.mchange</groupId>
+            <artifactId>mchange-commons-java</artifactId>
+            <version>0.2.19</version>
+        </dependency>
 
         <!-- SLF4J для логирования -->
         <dependency>
@@ -80,7 +87,7 @@
                 <artifactId>javafx-maven-plugin</artifactId>
                 <version>0.0.8</version>
                 <configuration>
-                    <mainClass>org.example.Practice.MaritimeBookingAppHib</mainClass>
+                    <mainClass>org.example.Practice.MaritimeBookingApp</mainClass>
                 </configuration>
             </plugin>
         </plugins>

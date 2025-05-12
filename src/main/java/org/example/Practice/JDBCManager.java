@@ -37,12 +37,29 @@ public class JDBCManager {
         }
     }
 
-    // Методы для работы с билетами
-    public static ResultSet getTicketsForYearWithPrice(Connection connection, int year, double price)
-            throws SQLException {
+    // Универсальная таблица - первая вкладка
+    public static ResultSet getTablesMetadata(Connection connection) throws SQLException {
+        return connection.getMetaData().getTables(null, "maritime_booking", "%", new String[] { "TABLE" });
+    }
+
+    public static ResultSet executeQuery(Connection connection, String sql) throws SQLException {
+        return connection.createStatement().executeQuery(sql);
+    }
+
+    // Покупка билета - вторая вкладка
+    public static ResultSet getActiveVoyages(Connection connection) throws SQLException {
         return connection.createStatement().executeQuery(
-                "SELECT * FROM maritime_booking.tickets WHERE purchase_date BETWEEN '" + year + "-01-01' AND '"
-                        + year + "-12-31' AND price <= " + price + ";");
+                "SELECT id, vessel_id FROM maritime_booking.voyages WHERE status = 'active'");
+    }
+
+    public static ResultSet getVessels(Connection connection) throws SQLException {
+        return connection.createStatement().executeQuery(
+                "SELECT imo, name FROM maritime_booking.vessels");
+    }
+
+    public static ResultSet getCabins(Connection connection) throws SQLException {
+        return connection.createStatement().executeQuery(
+                "SELECT id, vessel_id, category, capacity, window_view FROM maritime_booking.cabins");
     }
 
     public static void buyTicket(Connection connection, String email, int voyageId, String vesselId, int cabinId,
@@ -95,7 +112,7 @@ public class JDBCManager {
         }
     }
 
-    // Методы для работы с клиентами
+    // Добавление клиента - третья вкладка
     public static void addClient(Connection connection, String lastName, String firstName, String middleName,
             long passportSeries, java.sql.Date birthDate, String email) throws SQLException {
         if (lastName == null || lastName.isBlank() || firstName == null || firstName.isBlank() ||
@@ -124,38 +141,14 @@ public class JDBCManager {
         }
     }
 
-    // Методы для работы с рейсами
-    public static ResultSet getVoyageRoute(Connection connection, int voyageId) throws SQLException {
-        String sql = "SELECT v.id AS voyage_id, v.vessel_id, ves.name AS vessel_name, v.status AS voyage_status, " +
-                "vs.stop_number, dp.un_locode AS departure_port_code, dp.name AS departure_port_name, " +
-                "dp.city AS departure_port_city, dp.country AS departure_port_country, vs.departure_datetime, " +
-                "ap.un_locode AS arrival_port_code, ap.name AS arrival_port_name, ap.city AS arrival_port_city, " +
-                "ap.country AS arrival_port_country, vs.arrival_datetime " +
-                "FROM maritime_booking.voyages v " +
-                "JOIN maritime_booking.vessels ves ON v.vessel_id = ves.imo " +
-                "JOIN maritime_booking.voyage_stages vs ON v.id = vs.voyage_id AND v.vessel_id = vs.vessel_id " +
-                "JOIN maritime_booking.ports dp ON vs.departure_port_id = dp.un_locode " +
-                "JOIN maritime_booking.ports ap ON vs.arrival_port_id = ap.un_locode " +
-                "WHERE v.id = ? " +
-                "ORDER BY v.id, vs.stop_number";
-        PreparedStatement ps = connection.prepareStatement(sql);
-        ps.setInt(1, voyageId);
-        return ps.executeQuery();
+    // Билеты за год с ценой меньше - четвертая вкладка
+    public static ResultSet getTicketsForYearWithPrice(Connection connection, int year, double price)
+            throws SQLException {
+        return connection.createStatement().executeQuery(
+                "SELECT * FROM maritime_booking.tickets WHERE purchase_date BETWEEN '" + year + "-01-01' AND '"
+                        + year + "-12-31' AND price <= " + price + ";");
     }
 
-    public static ResultSet getVoyageCities(Connection connection, int voyageId) throws SQLException {
-        String sql = "SELECT vs.stop_number, dp.city AS departure_city, ap.city AS arrival_city " +
-                "FROM maritime_booking.voyage_stages vs " +
-                "JOIN maritime_booking.ports dp ON vs.departure_port_id = dp.un_locode " +
-                "JOIN maritime_booking.ports ap ON vs.arrival_port_id = ap.un_locode " +
-                "WHERE vs.voyage_id = ? " +
-                "ORDER BY vs.stop_number";
-        PreparedStatement ps = connection.prepareStatement(sql);
-        ps.setInt(1, voyageId);
-        return ps.executeQuery();
-    }
-
-    // Методы для работы с продажами
     public static ResultSet getAvailableYears(Connection connection) throws SQLException {
         String sql = "SELECT DISTINCT EXTRACT(YEAR FROM purchase_date)::integer as year " +
                 "FROM maritime_booking.tickets " +
@@ -163,62 +156,166 @@ public class JDBCManager {
         return connection.createStatement().executeQuery(sql);
     }
 
-    public static ResultSet getTicketSales(Connection connection, String year) throws SQLException {
-        String sql = "SELECT EXTRACT(MONTH FROM t.purchase_date) AS month, p1.country AS departure_country, " +
-                "p2.country AS arrival_country, COUNT(t.id) AS ticket_count, " +
-                "ROUND(SUM(t.price),0) AS total_revenue, ROUND(AVG(t.price), 0) AS avg_price, " +
-                "ROUND(SUM(CASE WHEN t.insurance = true THEN 1 ELSE 0 END) * 100.0 / COUNT(t.id), 0) AS insurance_percentage "
-                +
-                "FROM maritime_booking.tickets t " +
-                "JOIN maritime_booking.voyages v ON t.voyage_id = v.id AND t.vessel_id = v.vessel_id " +
-                "JOIN maritime_booking.voyage_stages vs ON v.id = vs.voyage_id AND v.vessel_id = vs.vessel_id " +
-                "JOIN maritime_booking.ports p1 ON vs.departure_port_id = p1.un_locode " +
-                "JOIN maritime_booking.ports p2 ON vs.arrival_port_id = p2.un_locode " +
-                "WHERE t.purchase_date BETWEEN CAST(? AS date) AND CAST(? AS date) " +
-                "AND vs.stop_number = 1 " +
-                "GROUP BY EXTRACT(MONTH FROM t.purchase_date), p1.country, p2.country " +
-                "ORDER BY total_revenue DESC";
+    // Билеты клиента - пятая вкладка
+    public static ResultSet getCustomersWithTickets(Connection connection) throws SQLException {
+        return connection.createStatement().executeQuery(
+                "SELECT DISTINCT c.email, c.first_name, c.last_name " +
+                        "FROM maritime_booking.customers c " +
+                        "JOIN maritime_booking.tickets t ON c.email = t.email " +
+                        "ORDER BY c.email");
+    }
+
+    public static ResultSet getCustomerTickets(Connection connection, String email) throws SQLException {
+        String sql = "SELECT tickets.id, tickets.price\n" +
+                "FROM maritime_booking.tickets\n" +
+                "JOIN maritime_booking.customers ON tickets.email = customers.email\n" +
+                "WHERE customers.email = ?\n" +
+                "ORDER BY tickets.id";
         PreparedStatement ps = connection.prepareStatement(sql);
-        ps.setString(1, year + "-01-01");
-        ps.setString(2, year + "-12-31");
+        ps.setString(1, email);
         return ps.executeQuery();
     }
 
-    // Методы для работы со средним чеком
-    public static ResultSet getAverageCheck(Connection connection) throws SQLException {
-        String sql = "SELECT c.email, COUNT(t.id) AS tickets_cnt, AVG(t.price) AS avg_price " +
-                "FROM maritime_booking.customers c " +
-                "JOIN maritime_booking.tickets t ON c.email = t.email " +
-                "GROUP BY c.email " +
-                "ORDER BY avg_price DESC";
-        return connection.createStatement().executeQuery(sql);
-    }
-
-    // Методы для работы с выручкой
-    public static ResultSet getTotalRevenue(Connection connection) throws SQLException {
-        String sql = "SELECT vs.departure_port_id, vs.arrival_port_id, SUM(t.price) AS total_revenue " +
-                "FROM maritime_booking.voyage_stages vs " +
-                "JOIN maritime_booking.tickets t ON vs.voyage_id = t.voyage_id AND vs.vessel_id = t.vessel_id " +
-                "GROUP BY vs.departure_port_id, vs.arrival_port_id " +
-                "ORDER BY total_revenue DESC";
-        return connection.createStatement().executeQuery(sql);
-    }
-
-    // Методы для работы с багажом
-    public static void updateLuggagePrice(Connection connection, double minWeight, String date) throws SQLException {
-        String sql = "UPDATE maritime_booking.tickets SET price = price + (luggage_weight - ?) * 1000 " +
-                "WHERE purchase_date < CAST(? AS date) AND luggage_weight > ? " +
-                "AND EXISTS (SELECT 1 FROM maritime_booking.voyages WHERE tickets.voyage_id = voyages.id " +
-                "AND tickets.vessel_id = voyages.vessel_id AND voyages.status = 'active') " +
-                "AND EXISTS (SELECT 1 FROM maritime_booking.customers WHERE tickets.email = customers.email)";
+    // Клиенты по питанию - шестая вкладка
+    public static ResultSet getCustomersByMealType(Connection connection, String mealType) throws SQLException {
+        String sql = "SELECT customers.email, customers.first_name\n" +
+                "FROM maritime_booking.customers\n" +
+                "JOIN maritime_booking.tickets ON customers.email = tickets.email\n" +
+                "WHERE tickets.meal_type = ?\n" +
+                "ORDER BY customers.last_name, customers.first_name";
         PreparedStatement ps = connection.prepareStatement(sql);
-        ps.setDouble(1, minWeight);
-        ps.setString(2, date);
-        ps.setDouble(3, minWeight);
-        ps.executeUpdate();
+        ps.setString(1, mealType);
+        return ps.executeQuery();
     }
 
-    // Методы для удаления рейса
+    // Рейсы по статусу и питанию - седьмая вкладка
+    public static ResultSet getVoyagesByStatusAndMeal(Connection connection, String status, String mealType)
+            throws SQLException {
+        String sql = "SELECT DISTINCT voyages.id, voyages.status\n" +
+                "FROM maritime_booking.voyages\n" +
+                "JOIN maritime_booking.tickets ON tickets.voyage_id = voyages.id AND tickets.vessel_id = voyages.vessel_id\n"
+                +
+                "JOIN maritime_booking.customers ON tickets.email = customers.email\n" +
+                "WHERE voyages.status = ? AND tickets.meal_type = ?\n" +
+                "ORDER BY voyages.id";
+        PreparedStatement ps = connection.prepareStatement(sql);
+        ps.setString(1, status);
+        ps.setString(2, mealType);
+        return ps.executeQuery();
+    }
+
+    public static ResultSet getAvailableMealTypesByStatus(Connection connection, String status) throws SQLException {
+        String sql = "SELECT DISTINCT tickets.meal_type\n" +
+                "FROM maritime_booking.tickets\n" +
+                "JOIN maritime_booking.voyages ON tickets.voyage_id = voyages.id AND tickets.vessel_id = voyages.vessel_id\n"
+                +
+                "WHERE voyages.status = ?\n" +
+                "ORDER BY tickets.meal_type";
+        PreparedStatement ps = connection.prepareStatement(sql);
+        ps.setString(1, status);
+        return ps.executeQuery();
+    }
+
+    public static boolean hasVoyagesWithStatus(Connection connection, String status) throws SQLException {
+        String sql = "SELECT 1 FROM maritime_booking.voyages WHERE status = ? LIMIT 1";
+        PreparedStatement ps = connection.prepareStatement(sql);
+        ps.setString(1, status);
+        ResultSet rs = ps.executeQuery();
+        return rs.next();
+    }
+
+    // Билеты со страховкой по стране - восьмая вкладка
+    public static ResultSet getCountriesWithInsuredTickets(Connection connection) throws SQLException {
+        return connection.createStatement().executeQuery(
+                "SELECT DISTINCT p.country " +
+                        "FROM maritime_booking.ports p " +
+                        "JOIN maritime_booking.voyage_stages vs ON vs.departure_port_id = p.un_locode " +
+                        "JOIN maritime_booking.tickets t ON t.voyage_id = vs.voyage_id AND t.vessel_id = vs.vessel_id "
+                        +
+                        "WHERE t.insurance = true " +
+                        "ORDER BY p.country");
+    }
+
+    public static boolean hasInsuredTickets(Connection connection) throws SQLException {
+        String sql = "SELECT 1 FROM maritime_booking.tickets WHERE insurance = true LIMIT 1";
+        ResultSet rs = connection.createStatement().executeQuery(sql);
+        return rs.next();
+    }
+
+    public static ResultSet getInsuredTicketsByCountry(Connection connection, String country) throws SQLException {
+        String sql = "SELECT tickets.id, tickets.price\n" +
+                "FROM maritime_booking.tickets\n" +
+                "JOIN maritime_booking.voyages ON tickets.voyage_id = voyages.id AND tickets.vessel_id = voyages.vessel_id\n"
+                +
+                "JOIN maritime_booking.voyage_stages ON voyage_stages.voyage_id = voyages.id AND voyage_stages.vessel_id = voyages.vessel_id\n"
+                +
+                "JOIN maritime_booking.ports ON voyage_stages.departure_port_id = ports.un_locode\n" +
+                "JOIN maritime_booking.customers ON tickets.email = customers.email\n" +
+                "WHERE ports.country = ? AND tickets.insurance = true AND voyage_stages.stop_number = 1\n" +
+                "ORDER BY tickets.id";
+        PreparedStatement ps = connection.prepareStatement(sql);
+        ps.setString(1, country.toLowerCase());
+        return ps.executeQuery();
+    }
+
+    // Добавить клиента и билет - девятая вкладка
+    public static ResultSet getCustomers(Connection connection) throws SQLException {
+        return connection.createStatement().executeQuery(
+                "SELECT email, first_name, last_name FROM maritime_booking.customers ORDER BY last_name, first_name");
+    }
+
+    public static int addClientAndTicket(Connection connection, String email, String lastName, String firstName,
+            String middleName, String birthDate, String passportSeries,
+            int voyageId, String vesselId, int cabinId, double price,
+            String paymentMethod, String mealType, boolean insurance,
+            int luggageWeight, String purchaseDate) throws SQLException {
+        connection.setAutoCommit(false);
+        try {
+            String sql1 = "INSERT INTO maritime_booking.customers (email, last_name, first_name, middle_name, birth_date, passport_series) VALUES (?, ?, ?, ?, ?, ?)";
+            var ps1 = connection.prepareStatement(sql1);
+            ps1.setString(1, email);
+            ps1.setString(2, lastName);
+            ps1.setString(3, firstName);
+            ps1.setString(4, middleName);
+            ps1.setDate(5, java.sql.Date.valueOf(birthDate));
+            ps1.setString(6, passportSeries);
+            ps1.executeUpdate();
+
+            String sql2 = "INSERT INTO maritime_booking.tickets (email, voyage_id, vessel_id, cabin_id, price, payment_method, meal_type, insurance, luggage_weight, purchase_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id";
+            var ps2 = connection.prepareStatement(sql2);
+            ps2.setString(1, email);
+            ps2.setInt(2, voyageId);
+            ps2.setString(3, vesselId);
+            ps2.setInt(4, cabinId);
+            ps2.setDouble(5, price);
+            ps2.setString(6, paymentMethod);
+            ps2.setString(7, mealType);
+            ps2.setBoolean(8, insurance);
+            ps2.setInt(9, luggageWeight);
+            ps2.setDate(10, java.sql.Date.valueOf(purchaseDate));
+
+            ResultSet rs = ps2.executeQuery();
+            int ticketId = -1;
+            if (rs.next()) {
+                ticketId = rs.getInt(1);
+            }
+
+            connection.commit();
+            return ticketId;
+        } catch (SQLException e) {
+            connection.rollback();
+            throw e;
+        }
+    }
+
+    // Удалить рейс и всё связанное - десятая вкладка
+    public static ResultSet getVoyagesWithVessels(Connection connection) throws SQLException {
+        return connection.createStatement().executeQuery(
+                "SELECT v.id, v.vessel_id, vs.name " +
+                        "FROM maritime_booking.voyages v " +
+                        "JOIN maritime_booking.vessels vs ON v.vessel_id = vs.imo");
+    }
+
     public static void deleteVoyage(Connection connection, int voyageId, String vesselId) throws SQLException {
         connection.setAutoCommit(false);
         try {
@@ -250,61 +347,132 @@ public class JDBCManager {
         }
     }
 
-    // Методы для получения списков
-    public static ResultSet getActiveVoyages(Connection connection) throws SQLException {
-        return connection.createStatement().executeQuery(
-                "SELECT id, vessel_id FROM maritime_booking.voyages WHERE status = 'active'");
-    }
-
-    public static ResultSet getCustomersWithTickets(Connection connection) throws SQLException {
-        return connection.createStatement().executeQuery(
-                "SELECT DISTINCT c.email, c.first_name, c.last_name " +
-                        "FROM maritime_booking.customers c " +
-                        "JOIN maritime_booking.tickets t ON c.email = t.email " +
-                        "ORDER BY c.email");
-    }
-
-    public static ResultSet getVessels(Connection connection) throws SQLException {
-        return connection.createStatement().executeQuery(
-                "SELECT imo, name FROM maritime_booking.vessels");
-    }
-
-    public static ResultSet getCabins(Connection connection) throws SQLException {
-        return connection.createStatement().executeQuery(
-                "SELECT id, vessel_id, category, capacity, window_view FROM maritime_booking.cabins");
-    }
-
-    public static ResultSet getCustomers(Connection connection) throws SQLException {
-        return connection.createStatement().executeQuery(
-                "SELECT email, first_name, last_name FROM maritime_booking.customers ORDER BY last_name, first_name");
-    }
-
-    public static ResultSet getCountriesWithInsuredTickets(Connection connection) throws SQLException {
-        return connection.createStatement().executeQuery(
-                "SELECT DISTINCT p.country " +
-                        "FROM maritime_booking.ports p " +
-                        "JOIN maritime_booking.voyage_stages vs ON vs.departure_port_id = p.un_locode " +
-                        "JOIN maritime_booking.tickets t ON t.voyage_id = vs.voyage_id AND t.vessel_id = vs.vessel_id "
-                        +
-                        "WHERE t.insurance = true " +
-                        "ORDER BY p.country");
-    }
-
-    public static ResultSet getVoyagesWithVessels(Connection connection) throws SQLException {
-        return connection.createStatement().executeQuery(
-                "SELECT v.id, v.vessel_id, vs.name " +
-                        "FROM maritime_booking.voyages v " +
-                        "JOIN maritime_booking.vessels vs ON v.vessel_id = vs.imo");
-    }
-
-    public static ResultSet getCustomerTickets(Connection connection, String email) throws SQLException {
-        String sql = "SELECT tickets.id, tickets.price\n" +
-                "FROM maritime_booking.tickets\n" +
-                "JOIN maritime_booking.customers ON tickets.email = customers.email\n" +
-                "WHERE customers.email = ?\n" +
-                "ORDER BY tickets.id";
+    // Корректировка цены багажа - одиннадцатая вкладка
+    public static ResultSet getFutureLuggagePrices(Connection connection, double minWeight, String date)
+            throws SQLException {
+        String sql = "SELECT t.id, t.luggage_weight, t.price, " +
+                "t.price + (t.luggage_weight - ?) * 1000 as updated_price, t.purchase_date " +
+                "FROM maritime_booking.tickets t " +
+                "WHERE t.purchase_date < CAST(? AS date) AND t.luggage_weight > ? " +
+                "AND EXISTS (SELECT 1 FROM maritime_booking.voyages v " +
+                "WHERE t.voyage_id = v.id AND t.vessel_id = v.vessel_id AND v.status = 'active') " +
+                "AND EXISTS (SELECT 1 FROM maritime_booking.customers c WHERE t.email = c.email) " +
+                "ORDER BY t.id";
         PreparedStatement ps = connection.prepareStatement(sql);
-        ps.setString(1, email);
+        ps.setDouble(1, minWeight);
+        ps.setString(2, date);
+        ps.setDouble(3, minWeight);
         return ps.executeQuery();
+    }
+
+    public static void updateLuggagePrice(Connection connection, double minWeight, String date) throws SQLException {
+        String sql = "UPDATE maritime_booking.tickets SET price = price + (luggage_weight - ?) * 1000 " +
+                "WHERE purchase_date < CAST(? AS date) AND luggage_weight > ? " +
+                "AND EXISTS (SELECT 1 FROM maritime_booking.voyages WHERE tickets.voyage_id = voyages.id " +
+                "AND tickets.vessel_id = voyages.vessel_id AND voyages.status = 'active') " +
+                "AND EXISTS (SELECT 1 FROM maritime_booking.customers WHERE tickets.email = customers.email)";
+        PreparedStatement ps = connection.prepareStatement(sql);
+        ps.setDouble(1, minWeight);
+        ps.setString(2, date);
+        ps.setDouble(3, minWeight);
+        ps.executeUpdate();
+    }
+
+    public static ResultSet getUpdatedLuggageTickets(Connection connection, double minWeight, String date)
+            throws SQLException {
+        String sql = "SELECT id, luggage_weight, price, purchase_date " +
+                "FROM maritime_booking.tickets " +
+                "WHERE purchase_date < CAST(? AS date) AND luggage_weight > ? " +
+                "AND EXISTS (SELECT 1 FROM maritime_booking.voyages v " +
+                "WHERE tickets.voyage_id = v.id AND tickets.vessel_id = v.vessel_id AND v.status = 'active') " +
+                "AND EXISTS (SELECT 1 FROM maritime_booking.customers c WHERE tickets.email = c.email) " +
+                "ORDER BY id";
+        var ps = connection.prepareStatement(sql);
+        ps.setString(1, date);
+        ps.setDouble(2, minWeight);
+        return ps.executeQuery();
+    }
+
+    // Маршрут рейса - двенадцатая вкладка
+    public static ResultSet getVoyagesWithVesselDetails(Connection connection) throws SQLException {
+        String sql = "SELECT v.id, v.vessel_id, vs.name as vessel_name, v.status " +
+                "FROM maritime_booking.voyages v " +
+                "JOIN maritime_booking.vessels vs ON v.vessel_id = vs.imo " +
+                "WHERE EXISTS (SELECT 1 FROM maritime_booking.voyage_stages vst " +
+                "WHERE vst.voyage_id = v.id AND vst.vessel_id = v.vessel_id) " +
+                "ORDER BY v.id";
+        return connection.createStatement().executeQuery(sql);
+    }
+
+    public static ResultSet getVoyageRoute(Connection connection, int voyageId) throws SQLException {
+        String sql = "SELECT v.id AS voyage_id, v.vessel_id, ves.name AS vessel_name, v.status AS voyage_status, " +
+                "vs.stop_number, dp.un_locode AS departure_port_code, dp.name AS departure_port_name, " +
+                "dp.city AS departure_port_city, dp.country AS departure_port_country, vs.departure_datetime, " +
+                "ap.un_locode AS arrival_port_code, ap.name AS arrival_port_name, ap.city AS arrival_port_city, " +
+                "ap.country AS arrival_port_country, vs.arrival_datetime " +
+                "FROM maritime_booking.voyages v " +
+                "JOIN maritime_booking.vessels ves ON v.vessel_id = ves.imo " +
+                "JOIN maritime_booking.voyage_stages vs ON v.id = vs.voyage_id AND v.vessel_id = vs.vessel_id " +
+                "JOIN maritime_booking.ports dp ON vs.departure_port_id = dp.un_locode " +
+                "JOIN maritime_booking.ports ap ON vs.arrival_port_id = ap.un_locode " +
+                "WHERE v.id = ? " +
+                "ORDER BY v.id, vs.stop_number";
+        PreparedStatement ps = connection.prepareStatement(sql);
+        ps.setInt(1, voyageId);
+        return ps.executeQuery();
+    }
+
+    public static ResultSet getVoyageCities(Connection connection, int voyageId) throws SQLException {
+        String sql = "SELECT vs.stop_number, dp.city AS departure_city, ap.city AS arrival_city " +
+                "FROM maritime_booking.voyage_stages vs " +
+                "JOIN maritime_booking.ports dp ON vs.departure_port_id = dp.un_locode " +
+                "JOIN maritime_booking.ports ap ON vs.arrival_port_id = ap.un_locode " +
+                "WHERE vs.voyage_id = ? " +
+                "ORDER BY vs.stop_number";
+        PreparedStatement ps = connection.prepareStatement(sql);
+        ps.setInt(1, voyageId);
+        return ps.executeQuery();
+    }
+
+    // Продажи билетов - тринадцатая вкладка
+    public static ResultSet getTicketSales(Connection connection, String year) throws SQLException {
+        String sql = "SELECT EXTRACT(MONTH FROM t.purchase_date) AS month, p1.country AS departure_country, " +
+                "p2.country AS arrival_country, COUNT(t.id) AS ticket_count, " +
+                "ROUND(SUM(t.price),0) AS total_revenue, ROUND(AVG(t.price), 0) AS avg_price, " +
+                "ROUND(SUM(CASE WHEN t.insurance = true THEN 1 ELSE 0 END) * 100.0 / COUNT(t.id), 0) AS insurance_percentage "
+                +
+                "FROM maritime_booking.tickets t " +
+                "JOIN maritime_booking.voyages v ON t.voyage_id = v.id AND t.vessel_id = v.vessel_id " +
+                "JOIN maritime_booking.voyage_stages vs ON v.id = vs.voyage_id AND v.vessel_id = vs.vessel_id " +
+                "JOIN maritime_booking.ports p1 ON vs.departure_port_id = p1.un_locode " +
+                "JOIN maritime_booking.ports p2 ON vs.arrival_port_id = p2.un_locode " +
+                "WHERE t.purchase_date BETWEEN CAST(? AS date) AND CAST(? AS date) " +
+                "AND vs.stop_number = 1 " +
+                "GROUP BY EXTRACT(MONTH FROM t.purchase_date), p1.country, p2.country " +
+                "ORDER BY total_revenue DESC";
+        PreparedStatement ps = connection.prepareStatement(sql);
+        ps.setString(1, year + "-01-01");
+        ps.setString(2, year + "-12-31");
+        return ps.executeQuery();
+    }
+
+    // Средний чек по клиентам - четырнадцатая вкладка
+    public static ResultSet getAverageCheck(Connection connection) throws SQLException {
+        String sql = "SELECT c.email, COUNT(t.id) AS tickets_cnt, ROUND(AVG(t.price), 0) AS avg_price " +
+                "FROM maritime_booking.customers c " +
+                "JOIN maritime_booking.tickets t ON c.email = t.email " +
+                "GROUP BY c.email " +
+                "ORDER BY avg_price DESC";
+        return connection.createStatement().executeQuery(sql);
+    }
+
+    // Выручка по маршрутам - пятнадцатая вкладка
+    public static ResultSet getTotalRevenue(Connection connection) throws SQLException {
+        String sql = "SELECT vs.departure_port_id, vs.arrival_port_id, ROUND(SUM(t.price), 0) AS total_revenue " +
+                "FROM maritime_booking.voyage_stages vs " +
+                "JOIN maritime_booking.tickets t ON vs.voyage_id = t.voyage_id AND vs.vessel_id = t.vessel_id " +
+                "GROUP BY vs.departure_port_id, vs.arrival_port_id " +
+                "ORDER BY total_revenue DESC";
+        return connection.createStatement().executeQuery(sql);
     }
 }

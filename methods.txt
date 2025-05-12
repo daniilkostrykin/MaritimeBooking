@@ -1,0 +1,43 @@
+Универсальная таблица - первая вкладка
+getTablesMetadata
+executeQuery
+Покупка билета - вторая вкладка
+getActiveVoyages
+getVessels
+getCabins
+buyTicket
+Добавление клиента - третья вкладка
+addClient
+Билеты за год с ценой меньше - четвертая вкладка
+getTicketsForYearWithPrice
+getAvailableYears
+Билеты клиента - пятая вкладка
+getCustomersWithTickets
+getCustomerTickets
+Клиенты по питанию - шестая вкладка
+getCustomersByMealType
+Рейсы по статусу и питанию - седьмая вкладка
+getVoyagesByStatusAndMeal
+Билеты со страховкой по стране - восьмая вкладка
+getCountriesWithInsuredTickets
+getInsuredTicketsByCountry
+Добавить клиента и билет - девятая вкладка
+getCustomers
+addClientAndTicket
+Удалить рейс и всё связанное - десятая вкладка
+getVoyagesWithVessels
+deleteVoyage
+Корректировка цены багажа - одиннадцатая вкладка
+getFutureLuggagePrices
+updateLuggagePrice
+getUpdatedLuggageTickets
+Маршрут рейса - двенадцатая вкладка
+getVoyagesWithVesselDetails
+getVoyageRoute
+getVoyageCities
+Продажи билетов - тринадцатая вкладка
+getTicketSales
+Средний чек по клиентам - четырнадцатая вкладка
+getAverageCheck
+Выручка по маршрутам - пятнадцатая вкладка
+getTotalRevenue

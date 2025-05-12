@@ -12,7 +12,6 @@ import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
 import java.sql.Connection;
 import java.sql.DriverManager;
-import java.sql.ResultSet;
 import java.sql.SQLException;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -22,6 +21,7 @@ import javafx.geometry.Pos;
 import javafx.scene.layout.VBox;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
+import java.util.Optional;
 
 public class MaritimeBookingApp extends Application {
     private static final String PROTOCOL = "jdbc:postgresql://";
@@ -619,14 +619,7 @@ public class MaritimeBookingApp extends Application {
             }
             ObservableList<ObservableList<String>> data = FXCollections.observableArrayList();
             try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
-                String sql = "SELECT customers.email, customers.first_name\n" +
-                        "FROM maritime_booking.customers\n" +
-                        "JOIN maritime_booking.tickets ON customers.email = tickets.email\n" +
-                        "WHERE tickets.meal_type = ?\n" +
-                        "ORDER BY customers.last_name, customers.first_name";
-                var ps = connection.prepareStatement(sql);
-                ps.setString(1, mealType);
-                var rs = ps.executeQuery();
+                var rs = JDBCManager.getCustomersByMealType(connection, mealType);
                 while (rs.next()) {
                     ObservableList<String> row = FXCollections.observableArrayList();
                     row.add(rs.getString("email"));
@@ -665,8 +658,7 @@ public class MaritimeBookingApp extends Application {
         TableView<ObservableList<String>> tableView = new TableView<>();
 
         try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
-            var meta = connection.getMetaData();
-            var rs = meta.getTables(null, "maritime_booking", "%", new String[] { "TABLE" });
+            var rs = JDBCManager.getTablesMetadata(connection);
             while (rs.next()) {
                 tablesCombo.getItems().add(rs.getString("TABLE_NAME"));
             }
@@ -683,8 +675,8 @@ public class MaritimeBookingApp extends Application {
             tableView.getItems().clear();
 
             try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
-                var stmt = connection.createStatement();
-                var rs = stmt.executeQuery("SELECT * FROM maritime_booking." + tableName + " LIMIT 100");
+                var rs = JDBCManager.executeQuery(connection,
+                        "SELECT * FROM maritime_booking." + tableName + " LIMIT 100");
                 var rsmd = rs.getMetaData();
                 int columnCount = rsmd.getColumnCount();
 
@@ -727,9 +719,10 @@ public class MaritimeBookingApp extends Application {
 
         Label mealLabel = new Label("Выберите тип питания:");
         ComboBox<String> mealCombo = new ComboBox<>();
-        mealCombo.getItems().addAll("no_meals", "breakfast", "half_board", "full_board", "all_inclusive",
-                "ultra_all_inclusive");
         mealCombo.setPromptText("Тип питания");
+
+        Label infoLabel = new Label("");
+        infoLabel.setStyle("-fx-font-style: italic; -fx-text-fill: gray;");
 
         TableView<ObservableList<String>> table = new TableView<>();
         table.setPrefHeight(400);
@@ -750,17 +743,7 @@ public class MaritimeBookingApp extends Application {
             }
             ObservableList<ObservableList<String>> data = FXCollections.observableArrayList();
             try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
-                String sql = "SELECT DISTINCT voyages.id, voyages.status\n" +
-                        "FROM maritime_booking.voyages\n" +
-                        "JOIN maritime_booking.tickets ON tickets.voyage_id = voyages.id AND tickets.vessel_id = voyages.vessel_id\n"
-                        +
-                        "JOIN maritime_booking.customers ON tickets.email = customers.email\n" +
-                        "WHERE voyages.status = ? AND tickets.meal_type = ?\n" +
-                        "ORDER BY voyages.id";
-                var ps = connection.prepareStatement(sql);
-                ps.setString(1, status);
-                ps.setString(2, meal);
-                var rs = ps.executeQuery();
+                var rs = JDBCManager.getVoyagesByStatusAndMeal(connection, status, meal);
                 while (rs.next()) {
                     ObservableList<String> row = FXCollections.observableArrayList();
                     row.add(rs.getString("id"));
@@ -768,15 +751,63 @@ public class MaritimeBookingApp extends Application {
                     data.add(row);
                 }
                 table.setItems(data);
+
+                if (data.isEmpty()) {
+                    infoLabel.setText("Нет данных для выбранного статуса и типа питания");
+                }
+
             } catch (SQLException ex) {
                 showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить данные: " + ex.getMessage());
             }
         };
 
-        statusCombo.setOnAction(e -> updateTable.run());
-        mealCombo.setOnAction(e -> updateTable.run());
+        statusCombo.setOnAction(e -> {
+            String status = statusCombo.getValue();
+            if (status == null) {
+                return;
+            }
 
-        VBox form = new VBox(10, statusLabel, statusCombo, mealLabel, mealCombo);
+            mealCombo.getItems().clear();
+            table.getItems().clear();
+
+            try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
+                boolean hasVoyages = JDBCManager.hasVoyagesWithStatus(connection, status);
+
+                if (!hasVoyages) {
+                    infoLabel.setText("Нет рейсов с таким статусом");
+                    return;
+                }
+
+                var rs = JDBCManager.getAvailableMealTypesByStatus(connection, status);
+                boolean hasMealTypes = false;
+
+                while (rs.next()) {
+                    hasMealTypes = true;
+                    mealCombo.getItems().add(rs.getString("meal_type"));
+                }
+
+                if (hasMealTypes) {
+                    mealCombo.setPromptText("Выберите тип питания");
+
+                    if (mealCombo.getItems().size() == 1) {
+                        mealCombo.setValue(mealCombo.getItems().get(0));
+                    }
+                } else {
+                    mealCombo.setPromptText("Нет доступных типов питания");
+                    infoLabel.setText("Для рейсов с таким статусом нет билетов с питанием");
+                }
+            } catch (SQLException ex) {
+                showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить типы питания: " + ex.getMessage());
+            }
+        });
+
+        mealCombo.setOnAction(e -> {
+            if (mealCombo.getValue() != null) {
+                updateTable.run();
+            }
+        });
+
+        VBox form = new VBox(10, statusLabel, statusCombo, mealLabel, mealCombo, infoLabel);
         form.setAlignment(Pos.CENTER);
         form.setMaxWidth(350);
         vbox.getChildren().clear();
@@ -797,14 +828,8 @@ public class MaritimeBookingApp extends Application {
         ComboBox<String> countryCombo = new ComboBox<>();
         countryCombo.setPromptText("Страна");
 
-        try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
-            var rs = JDBCManager.getCountriesWithInsuredTickets(connection);
-            while (rs.next()) {
-                countryCombo.getItems().add(rs.getString("country"));
-            }
-        } catch (SQLException e) {
-            showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить список стран: " + e.getMessage());
-        }
+        Label infoLabel = new Label("");
+        infoLabel.setStyle("-fx-font-style: italic; -fx-text-fill: gray;");
 
         TableView<ObservableList<String>> table = new TableView<>();
         table.setPrefHeight(400);
@@ -818,6 +843,37 @@ public class MaritimeBookingApp extends Application {
         table.getColumns().add(idCol);
         table.getColumns().add(priceCol);
 
+        try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
+            boolean hasInsuredTickets = JDBCManager.hasInsuredTickets(connection);
+
+            if (!hasInsuredTickets) {
+                infoLabel.setText("В системе нет билетов со страховкой");
+                countryCombo.setDisable(true);
+                countryCombo.setPromptText("Нет доступных стран");
+            } else {
+                var rs = JDBCManager.getCountriesWithInsuredTickets(connection);
+                boolean hasCountries = false;
+
+                while (rs.next()) {
+                    hasCountries = true;
+                    countryCombo.getItems().add(rs.getString("country"));
+                }
+
+                if (hasCountries) {
+
+                    if (countryCombo.getItems().size() == 1) {
+                        countryCombo.setValue(countryCombo.getItems().get(0));
+                    }
+                } else {
+                    infoLabel.setText("Нет стран с билетами со страховкой");
+                    countryCombo.setDisable(true);
+                    countryCombo.setPromptText("Нет доступных стран");
+                }
+            }
+        } catch (SQLException e) {
+            showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить список стран: " + e.getMessage());
+        }
+
         countryCombo.setOnAction(e -> {
             String country = countryCombo.getValue();
             if (country == null) {
@@ -826,19 +882,7 @@ public class MaritimeBookingApp extends Application {
 
             ObservableList<ObservableList<String>> data = FXCollections.observableArrayList();
             try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
-                String sql = "SELECT tickets.id, tickets.price\n" +
-                        "FROM maritime_booking.tickets\n" +
-                        "JOIN maritime_booking.voyages ON tickets.voyage_id = voyages.id AND tickets.vessel_id = voyages.vessel_id\n"
-                        +
-                        "JOIN maritime_booking.voyage_stages ON voyage_stages.voyage_id = voyages.id AND voyage_stages.vessel_id = voyages.vessel_id\n"
-                        +
-                        "JOIN maritime_booking.ports ON voyage_stages.departure_port_id = ports.un_locode\n" +
-                        "JOIN maritime_booking.customers ON tickets.email = customers.email\n" +
-                        "WHERE ports.country = ? AND tickets.insurance = true AND voyage_stages.stop_number = 1\n" +
-                        "ORDER BY tickets.id";
-                var ps = connection.prepareStatement(sql);
-                ps.setString(1, country.toLowerCase());
-                var rs = ps.executeQuery();
+                var rs = JDBCManager.getInsuredTicketsByCountry(connection, country);
                 while (rs.next()) {
                     ObservableList<String> row = FXCollections.observableArrayList();
                     row.add(rs.getString("id"));
@@ -846,12 +890,16 @@ public class MaritimeBookingApp extends Application {
                     data.add(row);
                 }
                 table.setItems(data);
+
+                if (data.isEmpty()) {
+                    infoLabel.setText("Нет билетов со страховкой для выбранной страны");
+                }
             } catch (SQLException ex) {
                 showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить данные: " + ex.getMessage());
             }
         });
 
-        VBox form = new VBox(10, label, countryCombo);
+        VBox form = new VBox(10, label, countryCombo, infoLabel);
         form.setAlignment(Pos.CENTER);
         form.setMaxWidth(350);
         vbox.getChildren().clear();
@@ -1005,38 +1053,30 @@ public class MaritimeBookingApp extends Application {
             String cabinId = cabinCombo.getValue().split(" ")[0];
 
             try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
-                connection.setAutoCommit(false);
                 try {
-                    String sql1 = "INSERT INTO maritime_booking.customers (email, last_name, first_name, middle_name, birth_date, passport_series) VALUES (?, ?, ?, ?, ?, ?)";
-                    var ps1 = connection.prepareStatement(sql1);
-                    ps1.setString(1, emailField.getText());
-                    ps1.setString(2, lastNameField.getText());
-                    ps1.setString(3, firstNameField.getText());
-                    ps1.setString(4, middleNameField.getText());
-                    ps1.setDate(5, java.sql.Date.valueOf(birthDateField.getText()));
-                    ps1.setString(6, passportField.getText());
-                    ps1.executeUpdate();
-                    String sql2 = "INSERT INTO maritime_booking.tickets (email, voyage_id, vessel_id, cabin_id, price, payment_method, meal_type, insurance, luggage_weight, purchase_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id";
-                    var ps2 = connection.prepareStatement(sql2);
-                    ps2.setString(1, emailField.getText());
-                    ps2.setInt(2, Integer.parseInt(voyageId));
-                    ps2.setString(3, vesselId);
-                    ps2.setInt(4, Integer.parseInt(cabinId));
-                    ps2.setDouble(5, Double.parseDouble(priceField.getText()));
-                    ps2.setString(6, paymentMethodCombo.getValue());
-                    ps2.setString(7, mealTypeCombo.getValue());
-                    ps2.setBoolean(8, insuranceCheck.isSelected());
-                    ps2.setInt(9, Integer.parseInt(luggageField.getText()));
-                    ps2.setDate(10, java.sql.Date.valueOf(purchaseDateField.getText()));
-                    ResultSet rs = ps2.executeQuery();
-                    if (rs.next()) {
-                        System.out.println("Inserted ticket with ID " + rs.getInt(1));
+                    int ticketId = JDBCManager.addClientAndTicket(
+                            connection,
+                            emailField.getText(),
+                            lastNameField.getText(),
+                            firstNameField.getText(),
+                            middleNameField.getText(),
+                            birthDateField.getText(),
+                            passportField.getText(),
+                            Integer.parseInt(voyageId),
+                            vesselId,
+                            Integer.parseInt(cabinId),
+                            Double.parseDouble(priceField.getText()),
+                            paymentMethodCombo.getValue(),
+                            mealTypeCombo.getValue(),
+                            insuranceCheck.isSelected(),
+                            Integer.parseInt(luggageField.getText()),
+                            purchaseDateField.getText());
+                    if (ticketId > 0) {
+                        System.out.println("Inserted ticket with ID " + ticketId);
                     }
-                    connection.commit();
                     showAlert(Alert.AlertType.INFORMATION, "Успех", "Клиент и билет успешно добавлены!");
                     showTable("SELECT * FROM maritime_booking.customers", table);
                 } catch (SQLException ex) {
-                    connection.rollback();
                     showAlert(Alert.AlertType.ERROR, "Ошибка", "Ошибка при добавлении: " + ex.getMessage());
                 }
             } catch (SQLException ex) {
@@ -1077,6 +1117,19 @@ public class MaritimeBookingApp extends Application {
         ComboBox<String> vesselCombo = new ComboBox<>();
         vesselCombo.setPromptText("IMO судна");
 
+        // Создаем таблицы для отображения
+        Label voyagesLabel = new Label("Таблица рейсов:");
+        TableView<ObservableList<String>> voyagesTable = new TableView<>();
+        voyagesTable.setPrefHeight(150);
+
+        Label ticketsLabel = new Label("Таблица билетов выбранного рейса:");
+        TableView<ObservableList<String>> ticketsTable = new TableView<>();
+        ticketsTable.setPrefHeight(150);
+
+        Label stagesLabel = new Label("Таблица этапов выбранного рейса:");
+        TableView<ObservableList<String>> stagesTable = new TableView<>();
+        stagesTable.setPrefHeight(150);
+
         try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
             var rs = JDBCManager.getVoyagesWithVessels(connection);
             while (rs.next()) {
@@ -1094,11 +1147,27 @@ public class MaritimeBookingApp extends Application {
 
         voyageCombo.setOnAction(e -> {
             if (voyageCombo.getValue() != null) {
-                String vesselId = voyageCombo.getValue().split("IMO: ")[1].split(" -")[0];
+                String vesselIdFromVoyage = voyageCombo.getValue().split("IMO: ")[1].split(" -")[0];
                 vesselCombo.setValue(vesselCombo.getItems().stream()
-                        .filter(item -> item.startsWith(vesselId))
+                        .filter(item -> item.startsWith(vesselIdFromVoyage))
                         .findFirst()
                         .orElse(null));
+
+                // При выборе рейса сразу отображаем билеты и этапы этого рейса
+                if (voyageCombo.getValue() != null && vesselCombo.getValue() != null) {
+                    String voyageId = voyageCombo.getValue().split(" ")[0];
+                    String vesselId = vesselCombo.getValue().split(" ")[0];
+
+                    try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
+                        showTable("SELECT * FROM maritime_booking.tickets WHERE voyage_id = " + voyageId +
+                                " AND vessel_id = '" + vesselId + "'", ticketsTable);
+                        showTable("SELECT * FROM maritime_booking.voyage_stages WHERE voyage_id = " + voyageId +
+                                " AND vessel_id = '" + vesselId + "'", stagesTable);
+                    } catch (SQLException ex) {
+                        showAlert(Alert.AlertType.ERROR, "Ошибка",
+                                "Не удалось загрузить связанные данные: " + ex.getMessage());
+                    }
+                }
             }
         });
 
@@ -1106,8 +1175,8 @@ public class MaritimeBookingApp extends Application {
         deleteBtn.setStyle(
                 "-fx-font-weight: bold; -fx-background-color: #E53935; -fx-text-fill: white; -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
 
-        TableView<ObservableList<String>> table = new TableView<>();
-        table.setPrefHeight(200);
+        // Первоначальное заполнение таблицы рейсов
+        showTable("SELECT * FROM maritime_booking.voyages", voyagesTable);
 
         deleteBtn.setOnAction(e -> {
             if (voyageCombo.getValue() == null || vesselCombo.getValue() == null) {
@@ -1118,31 +1187,62 @@ public class MaritimeBookingApp extends Application {
             String voyageId = voyageCombo.getValue().split(" ")[0];
             String vesselId = vesselCombo.getValue().split(" ")[0];
 
-            try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
-                JDBCManager.deleteVoyage(connection, Integer.parseInt(voyageId), vesselId);
-                showAlert(Alert.AlertType.INFORMATION, "Успех", "Рейс и всё связанное удалено!");
+            // Подтверждение удаления
+            Alert confirmAlert = new Alert(Alert.AlertType.CONFIRMATION);
+            confirmAlert.setTitle("Подтверждение");
+            confirmAlert.setHeaderText("Удаление рейса");
+            confirmAlert.setContentText("Вы уверены, что хотите удалить рейс " + voyageId +
+                    " и все связанные данные? Это действие нельзя отменить.");
 
-                voyageCombo.setValue(null);
-                vesselCombo.setValue(null);
+            Optional<ButtonType> result = confirmAlert.showAndWait();
+            if (result.isPresent() && result.get() == ButtonType.OK) {
+                try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
+                    // Удаляем рейс
+                    JDBCManager.deleteVoyage(connection, Integer.parseInt(voyageId), vesselId);
+                    showAlert(Alert.AlertType.INFORMATION, "Успех", "Рейс " + voyageId + " и всё связанное удалено!");
 
-                voyageCombo.getItems().clear();
-                var rs = JDBCManager.getVoyagesWithVessels(connection);
-                while (rs.next()) {
-                    voyageCombo.getItems().add(rs.getString("id") + " (IMO: " + rs.getString("vessel_id") +
-                            " - " + rs.getString("name") + ")");
+                    // Очищаем значения комбобоксов
+                    voyageCombo.setValue(null);
+                    vesselCombo.setValue(null);
+
+                    // Обновляем комбобокс рейсов
+                    voyageCombo.getItems().clear();
+                    var rs = JDBCManager.getVoyagesWithVessels(connection);
+                    while (rs.next()) {
+                        voyageCombo.getItems().add(rs.getString("id") + " (IMO: " + rs.getString("vessel_id") +
+                                " - " + rs.getString("name") + ")");
+                    }
+
+                    // Обновляем таблицу рейсов
+                    showTable("SELECT * FROM maritime_booking.voyages", voyagesTable);
+
+                    // Проверяем реальное отсутствие данных в базе через SQL-запросы
+                    showTable("SELECT * FROM maritime_booking.tickets WHERE voyage_id = " + voyageId +
+                            " AND vessel_id = '" + vesselId + "'", ticketsTable);
+                    showTable("SELECT * FROM maritime_booking.voyage_stages WHERE voyage_id = " + voyageId +
+                            " AND vessel_id = '" + vesselId + "'", stagesTable);
+
+                    ticketsLabel.setText("Таблица билетов выбранного рейса (после удаления)");
+                    stagesLabel.setText("Таблица этапов выбранного рейса (после удаления)");
+                } catch (SQLException ex) {
+                    showAlert(Alert.AlertType.ERROR, "Ошибка", "Ошибка при удалении: " + ex.getMessage());
                 }
-
-                showTable("SELECT * FROM maritime_booking.voyages", table);
-            } catch (SQLException ex) {
-                showAlert(Alert.AlertType.ERROR, "Ошибка", "Ошибка при удалении: " + ex.getMessage());
             }
         });
 
         VBox form = new VBox(10, label, voyageLabel, voyageCombo, vesselLabel, vesselCombo, deleteBtn);
         form.setAlignment(Pos.CENTER);
         form.setMaxWidth(350);
+
+        // Добавляем все компоненты в scrollPane для возможности прокрутки
+        VBox tablesVBox = new VBox(10, voyagesLabel, voyagesTable, ticketsLabel, ticketsTable, stagesLabel,
+                stagesTable);
+        ScrollPane scrollPane = new ScrollPane(tablesVBox);
+        scrollPane.setFitToWidth(true);
+        scrollPane.setPrefHeight(450);
+
         vbox.getChildren().clear();
-        vbox.getChildren().addAll(title, form, table);
+        vbox.getChildren().addAll(title, form, scrollPane);
         vbox.setAlignment(Pos.CENTER);
         return vbox;
     }
@@ -1207,19 +1307,7 @@ public class MaritimeBookingApp extends Application {
             table.getItems().clear();
             futureCol.setText("Будущая обновленная цена");
             try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
-                String sql = "SELECT t.id, t.luggage_weight, t.price, " +
-                        "t.price + (t.luggage_weight - ?) * 1000 as updated_price, t.purchase_date " +
-                        "FROM maritime_booking.tickets t " +
-                        "WHERE t.purchase_date < CAST(? AS date) AND t.luggage_weight > ? " +
-                        "AND EXISTS (SELECT 1 FROM maritime_booking.voyages v " +
-                        "WHERE t.voyage_id = v.id AND t.vessel_id = v.vessel_id AND v.status = 'active') " +
-                        "AND EXISTS (SELECT 1 FROM maritime_booking.customers c WHERE t.email = c.email) " +
-                        "ORDER BY t.id";
-                var ps = connection.prepareStatement(sql);
-                ps.setDouble(1, Double.parseDouble(minWeight));
-                ps.setString(2, date);
-                ps.setDouble(3, Double.parseDouble(minWeight));
-                var rs = ps.executeQuery();
+                var rs = JDBCManager.getFutureLuggagePrices(connection, Double.parseDouble(minWeight), date);
                 ObservableList<ObservableList<String>> data = FXCollections.observableArrayList();
                 int rowCount = 0;
                 while (rs.next()) {
@@ -1257,17 +1345,7 @@ public class MaritimeBookingApp extends Application {
             try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
                 JDBCManager.updateLuggagePrice(connection, Double.parseDouble(minWeight), date);
                 showAlert(Alert.AlertType.INFORMATION, "Успех", "Цены обновлены!");
-                String sql = "SELECT id, luggage_weight, price, purchase_date " +
-                        "FROM maritime_booking.tickets " +
-                        "WHERE purchase_date < CAST(? AS date) AND luggage_weight > ? " +
-                        "AND EXISTS (SELECT 1 FROM maritime_booking.voyages v " +
-                        "WHERE tickets.voyage_id = v.id AND tickets.vessel_id = v.vessel_id AND v.status = 'active') " +
-                        "AND EXISTS (SELECT 1 FROM maritime_booking.customers c WHERE tickets.email = c.email) " +
-                        "ORDER BY id";
-                var ps = connection.prepareStatement(sql);
-                ps.setString(1, date);
-                ps.setDouble(2, Double.parseDouble(minWeight));
-                var rs = ps.executeQuery();
+                var rs = JDBCManager.getUpdatedLuggageTickets(connection, Double.parseDouble(minWeight), date);
                 ObservableList<ObservableList<String>> data = FXCollections.observableArrayList();
                 while (rs.next()) {
                     ObservableList<String> row = FXCollections.observableArrayList();
@@ -1307,12 +1385,7 @@ public class MaritimeBookingApp extends Application {
         voyageCombo.setPromptText("Рейс");
 
         try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
-            String sql = "SELECT v.id, v.vessel_id, vs.name as vessel_name, v.status " +
-                    "FROM maritime_booking.voyages v " +
-                    "JOIN maritime_booking.vessels vs ON v.vessel_id = vs.imo " +
-                    "ORDER BY v.id DESC";
-
-            var rs = connection.createStatement().executeQuery(sql);
+            var rs = JDBCManager.getVoyagesWithVesselDetails(connection);
             while (rs.next()) {
                 voyageCombo.getItems().add(String.format("%s (Судно: %s - %s, Статус: %s)",
                         rs.getString("id"),
@@ -1607,8 +1680,7 @@ public class MaritimeBookingApp extends Application {
         table.getColumns().clear();
         table.getItems().clear();
         try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
-            var stmt = connection.createStatement();
-            var rs = stmt.executeQuery(sql);
+            var rs = JDBCManager.executeQuery(connection, sql);
             var rsmd = rs.getMetaData();
             int columnCount = rsmd.getColumnCount();
             for (int i = 1; i <= columnCount; i++) {

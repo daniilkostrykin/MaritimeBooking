@@ -113,7 +113,7 @@ public class TicketDAO {
                         "AND t.luggageWeight > :minWeight " +
                         "AND t.voyage.status = 'active'";
 
-                Query<?> query = session.createQuery(hql, Ticket.class);
+                Query<?> query = session.createQuery(hql);
                 query.setParameter("minWeight", minWeight);
                 query.setParameter("date", date);
 
@@ -130,22 +130,58 @@ public class TicketDAO {
 
     public List<Ticket> findByCustomerEmail(String email) {
         try (Session session = HibernateUtil.getSessionFactory().openSession()) {
-            return session.createQuery(
-                    "FROM Ticket t WHERE t.customerEmail = :email",
-                    Ticket.class)
-                    .setParameter("email", email)
-                    .list();
+            Query<Ticket> query = session.createQuery(
+                    "FROM Ticket t WHERE t.customer.email = :email",
+                    Ticket.class);
+            query.setParameter("email", email);
+            return query.list();
         }
     }
 
-    public List<Ticket> findTicketsForYearWithMaxPrice(int year, BigDecimal maxPrice) {
+    public List<Ticket> findTicketsForYearWithMaxPrice(int year, double maxPrice) {
         try (Session session = HibernateUtil.getSessionFactory().openSession()) {
-            return session.createQuery(
-                    "FROM Ticket t WHERE YEAR(t.purchaseDate) = :year AND t.price < :maxPrice",
-                    Ticket.class)
-                    .setParameter("year", year)
-                    .setParameter("maxPrice", maxPrice)
-                    .list();
+            String hql = "FROM Ticket t WHERE YEAR(t.purchaseDate) = :year AND t.price <= :maxPrice ORDER BY t.id";
+            Query<Ticket> query = session.createQuery(hql, Ticket.class);
+            query.setParameter("year", year);
+            query.setParameter("maxPrice", BigDecimal.valueOf(maxPrice));
+            return query.list();
+        }
+    }
+
+    public List<Ticket> findByMealType(String mealType) {
+        try (Session session = HibernateUtil.getSessionFactory().openSession()) {
+            Query<Ticket> query = session.createQuery(
+                    "FROM Ticket t WHERE t.mealType = :mealType",
+                    Ticket.class);
+            query.setParameter("mealType", mealType);
+            return query.list();
+        }
+    }
+
+    public List<Ticket> findInsuredTicketsByDepartureCountry(String country) {
+        try (Session session = HibernateUtil.getSessionFactory().openSession()) {
+            Query<Ticket> query = session.createQuery(
+                    "SELECT t FROM Ticket t " +
+                            "JOIN t.voyage v " +
+                            "JOIN FETCH t.customer " +
+                            "JOIN VoyageStage vs ON vs.voyageId = v.id AND vs.vesselId = v.vesselId " +
+                            "JOIN vs.departurePort p " +
+                            "WHERE p.country = :country AND t.insurance = true AND vs.stopNumber = 1",
+                    Ticket.class);
+            query.setParameter("country", country.toLowerCase());
+            return query.list();
+        }
+    }
+
+    public List<Object[]> getAverageCheckByCustomer() {
+        try (Session session = HibernateUtil.getSessionFactory().openSession()) {
+            Query<Object[]> query = session.createQuery(
+                    "SELECT t.customer.email, COUNT(t), AVG(t.price) " +
+                            "FROM Ticket t " +
+                            "GROUP BY t.customer.email " +
+                            "ORDER BY AVG(t.price) DESC",
+                    Object[].class);
+            return query.list();
         }
     }
 

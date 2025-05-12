@@ -4,6 +4,8 @@ import org.example.entity.Customer;
 import org.example.util.HibernateUtil;
 import org.hibernate.Session;
 import org.hibernate.Transaction;
+import org.hibernate.query.Query;
+import java.time.LocalDate;
 import java.util.List;
 
 public class CustomerDAO {
@@ -64,6 +66,24 @@ public class CustomerDAO {
                 }
                 throw e;
             }
+        }
+    }
+
+    public List<Customer> findCustomersWithTickets() {
+        try (Session session = HibernateUtil.getSessionFactory().openSession()) {
+            return session.createQuery(
+                    "SELECT DISTINCT c FROM Customer c JOIN FETCH c.tickets",
+                    Customer.class).list();
+        }
+    }
+
+    public List<Customer> findByMealType(String mealType) {
+        try (Session session = HibernateUtil.getSessionFactory().openSession()) {
+            return session.createQuery(
+                    "SELECT DISTINCT c FROM Customer c JOIN c.tickets t WHERE t.mealType = :mealType",
+                    Customer.class)
+                    .setParameter("mealType", mealType)
+                    .list();
         }
     }
 }

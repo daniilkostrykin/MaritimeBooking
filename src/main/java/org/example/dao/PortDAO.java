@@ -66,4 +66,20 @@ public class PortDAO {
             }
         }
     }
+
+    /**
+     * Получает список стран, из которых отправляются рейсы с билетами, имеющими
+     * страховку
+     */
+    public List<String> getCountriesWithInsuredTickets() {
+        try (Session session = HibernateUtil.getSessionFactory().openSession()) {
+            return session.createQuery(
+                    "SELECT DISTINCT p.country FROM Port p " +
+                            "JOIN VoyageStage vs ON vs.departurePort = p " +
+                            "JOIN Ticket t ON t.voyageId = vs.voyageId AND t.vesselId = vs.vesselId " +
+                            "WHERE t.insurance = true " +
+                            "ORDER BY p.country",
+                    String.class).list();
+        }
+    }
 }
