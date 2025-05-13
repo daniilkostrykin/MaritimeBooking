@@ -119,10 +119,8 @@ public class JDBCManager {
         }
     }
 
-    // Версия метода addClient, принимающая строку даты
     public static void addClient(Connection connection, String lastName, String firstName, String middleName,
             long passportSeries, String birthDateStr, String email) throws SQLException {
-        // Проверка и преобразование строки даты в java.sql.Date
         try {
             java.sql.Date birthDate = java.sql.Date.valueOf(birthDateStr.trim());
             addClient(connection, lastName, firstName, middleName, passportSeries, birthDate, email);
@@ -146,7 +144,6 @@ public class JDBCManager {
         return connection.createStatement().executeQuery(sql);
     }
 
-    // Проверка существования клиента по email
     public static boolean checkCustomerExists(Connection connection, String email) throws SQLException {
         String sql = "SELECT 1 FROM maritime_booking.customers WHERE email = ?";
         PreparedStatement ps = connection.prepareStatement(sql);
@@ -276,7 +273,6 @@ public class JDBCManager {
             throw new SQLException("Invalid input parameters.");
         }
 
-        // Проверка и преобразование дат
         java.sql.Date birthDate;
         java.sql.Date purchaseDate;
         try {
@@ -286,7 +282,6 @@ public class JDBCManager {
             throw new SQLException("Некорректный формат даты. Используйте формат ГГГГ-ММ-ДД: " + e.getMessage());
         }
 
-        // Проверка и преобразование серии паспорта
         long passportSeries;
         try {
             passportSeries = Long.parseLong(passportStr);
@@ -299,7 +294,6 @@ public class JDBCManager {
 
         connection.setAutoCommit(false);
         try {
-            // Добавление клиента
             PreparedStatement stmtClient = connection.prepareStatement(
                     "INSERT INTO maritime_booking.customers (email, last_name, first_name, middle_name, birth_date, passport_series) "
                             +
@@ -313,7 +307,6 @@ public class JDBCManager {
             stmtClient.setLong(6, passportSeries);
             stmtClient.executeUpdate();
 
-            // Добавление билета
             PreparedStatement stmtTicket = connection.prepareStatement(
                     "INSERT INTO maritime_booking.tickets (email, voyage_id, vessel_id, cabin_id, price, " +
                             "payment_method, meal_type, insurance, luggage_weight, purchase_date) " +
@@ -356,21 +349,18 @@ public class JDBCManager {
     public static void deleteVoyage(Connection connection, int voyageId, String vesselId) throws SQLException {
         connection.setAutoCommit(false);
         try {
-            // Удаление билетов
             String sql1 = "DELETE FROM maritime_booking.tickets WHERE voyage_id = ? AND vessel_id = ?";
             PreparedStatement ps1 = connection.prepareStatement(sql1);
             ps1.setInt(1, voyageId);
             ps1.setString(2, vesselId);
             ps1.executeUpdate();
 
-            // Удаление этапов рейса
             String sql2 = "DELETE FROM maritime_booking.voyage_stages WHERE voyage_id = ? AND vessel_id = ?";
             PreparedStatement ps2 = connection.prepareStatement(sql2);
             ps2.setInt(1, voyageId);
             ps2.setString(2, vesselId);
             ps2.executeUpdate();
 
-            // Удаление рейса
             String sql3 = "DELETE FROM maritime_booking.voyages WHERE id = ? AND vessel_id = ?";
             PreparedStatement ps3 = connection.prepareStatement(sql3);
             ps3.setInt(1, voyageId);
@@ -441,7 +431,6 @@ public class JDBCManager {
         return connection.createStatement().executeQuery(sql);
     }
 
-    // Получение списка доступных статусов рейсов
     public static ResultSet getAvailableVoyageStatuses(Connection connection) throws SQLException {
         String sql = "SELECT DISTINCT status FROM maritime_booking.voyages ORDER BY status";
         return connection.createStatement().executeQuery(sql);
@@ -519,7 +508,6 @@ public class JDBCManager {
         return connection.createStatement().executeQuery(sql);
     }
 
-    // Общие методы для работы с данными
     public static ResultSet getActiveVoyages(Connection connection) throws SQLException {
         return connection.createStatement().executeQuery(
                 "SELECT id, vessel_id FROM maritime_booking.voyages WHERE status = 'active'");

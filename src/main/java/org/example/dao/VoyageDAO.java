@@ -116,9 +116,10 @@ public class VoyageDAO {
                             "JOIN maritime_booking.ports dp ON vst.departure_port_id = dp.un_locode " +
                             "JOIN maritime_booking.ports ap ON vst.arrival_port_id = ap.un_locode " +
                             "WHERE v.id = :voyageId " +
-                            "ORDER BY vst.stop_number")
+                            "ORDER BY vst.stop_number",
+                    Object[].class)
                     .setParameter("voyageId", voyageId)
-                    .list();
+                    .getResultList();
         }
     }
 

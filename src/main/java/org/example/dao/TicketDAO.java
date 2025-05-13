@@ -113,7 +113,7 @@ public class TicketDAO {
                         "AND t.luggageWeight > :minWeight " +
                         "AND t.voyage.status = 'active'";
 
-                Query<?> query = session.createQuery(hql);
+                Query<?> query = session.createQuery(hql, Ticket.class);
                 query.setParameter("minWeight", minWeight);
                 query.setParameter("date", date);
 

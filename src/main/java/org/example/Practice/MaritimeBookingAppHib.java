@@ -914,6 +914,7 @@ public class MaritimeBookingAppHib extends Application {
         return vbox;
     }
 
+    @SuppressWarnings("unchecked")
     private javafx.scene.Node createAddClientAndTicketTab() {
         VBox vbox = new VBox(20);
         vbox.setPadding(new Insets(30));
@@ -1155,6 +1156,7 @@ public class MaritimeBookingAppHib extends Application {
         return vbox;
     }
 
+    @SuppressWarnings("unchecked")
     private VBox createDeleteVoyageTab() {
         VBox vbox = new VBox(20);
         vbox.setPadding(new Insets(30));
@@ -1753,30 +1755,4 @@ public class MaritimeBookingAppHib extends Application {
         alert.showAndWait();
     }
 
-    private void showTable(String sql, TableView<ObservableList<String>> table) {
-        table.getColumns().clear();
-        table.getItems().clear();
-        try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
-            var stmt = connection.createStatement();
-            var rs = stmt.executeQuery(sql);
-            var rsmd = rs.getMetaData();
-            int columnCount = rsmd.getColumnCount();
-            for (int i = 1; i <= columnCount; i++) {
-                final int colIndex = i - 1;
-                TableColumn<ObservableList<String>, String> col = new TableColumn<>(rsmd.getColumnName(i));
-                col.setCellValueFactory(
-                        data -> new javafx.beans.property.SimpleStringProperty(data.getValue().get(colIndex)));
-                table.getColumns().add(col);
-            }
-            while (rs.next()) {
-                ObservableList<String> row = FXCollections.observableArrayList();
-                for (int i = 1; i <= columnCount; i++) {
-                    row.add(rs.getString(i));
-                }
-                table.getItems().add(row);
-            }
-        } catch (SQLException e) {
-            showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить таблицу: " + e.getMessage());
-        }
-    }
 }

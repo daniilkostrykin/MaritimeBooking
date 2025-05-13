@@ -188,12 +188,10 @@ public class MaritimeBookingApp extends Application {
         TextField purchaseDateField = new TextField();
         purchaseDateField.setPromptText("Дата покупки (ГГГГ-ММ-ДД)");
 
-        // Замена обычного Label на VBox со списком ошибок
         VBox errorBox = new VBox(5);
         errorBox.setAlignment(Pos.CENTER_LEFT);
         errorBox.setPadding(new Insets(5, 0, 5, 0));
 
-        // Сохраняем полный список кают для повторного использования
         ObservableList<String> allCabins = FXCollections.observableArrayList();
 
         try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
@@ -216,7 +214,6 @@ public class MaritimeBookingApp extends Application {
                 allCabins.add(cabinItem);
             }
 
-            // Устанавливаем полный список кают изначально
             cabinCombo.setItems(FXCollections.observableArrayList(allCabins));
         } catch (SQLException e) {
             showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить данные: " + e.getMessage());
@@ -226,13 +223,11 @@ public class MaritimeBookingApp extends Application {
             if (voyageCombo.getValue() != null) {
                 String vesselId = voyageCombo.getValue().split("IMO: ")[1].replace(")", "");
 
-                // Находим соответствующее судно и устанавливаем его
                 vesselCombo.setValue(vesselCombo.getItems().stream()
                         .filter(item -> item.startsWith(vesselId))
                         .findFirst()
                         .orElse(null));
 
-                // Автоматическая подстановка каюты при выборе рейса
                 if (vesselCombo.getValue() != null) {
                     String cabinVesselId = vesselCombo.getValue().split(" ")[0];
                     ObservableList<String> filteredCabins = FXCollections.observableArrayList(
@@ -248,13 +243,11 @@ public class MaritimeBookingApp extends Application {
             }
         });
 
-        // Установка сегодняшней даты по умолчанию
         purchaseDateField.setText(java.time.LocalDate.now().toString());
 
         Button buyTicketBtn = new Button("Купить билет");
 
         buyTicketBtn.setOnAction(e -> {
-            // Очищаем предыдущие ошибки и стили
             errorBox.getChildren().clear();
             emailField.setStyle("");
             voyageCombo.setStyle("");
@@ -266,10 +259,8 @@ public class MaritimeBookingApp extends Application {
             luggageField.setStyle("");
             purchaseDateField.setStyle("");
 
-            // Список для ошибок
             java.util.List<String> errors = new java.util.ArrayList<>();
 
-            // Валидация email
             if (!Validator.isNotEmpty(emailField.getText())) {
                 errors.add("• Необходимо указать Email клиента");
                 emailField.setStyle("-fx-border-color: red;");
@@ -278,7 +269,6 @@ public class MaritimeBookingApp extends Application {
                 emailField.setStyle("-fx-border-color: red;");
             }
 
-            // Проверка существования клиента
             if (Validator.isValidEmail(emailField.getText())) {
                 try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
                     if (!JDBCManager.checkCustomerExists(connection, emailField.getText())) {
@@ -290,49 +280,41 @@ public class MaritimeBookingApp extends Application {
                 }
             }
 
-            // Валидация рейса
             if (voyageCombo.getValue() == null) {
                 errors.add("• Необходимо выбрать рейс");
                 voyageCombo.setStyle("-fx-border-color: red;");
             }
 
-            // Валидация судна
             if (vesselCombo.getValue() == null) {
                 errors.add("• Необходимо выбрать судно");
                 vesselCombo.setStyle("-fx-border-color: red;");
             }
 
-            // Валидация каюты
             if (cabinCombo.getValue() == null) {
                 errors.add("• Необходимо выбрать каюту");
                 cabinCombo.setStyle("-fx-border-color: red;");
             }
 
-            // Валидация цены
             if (!Validator.isNumeric(priceField.getText())) {
                 errors.add("• Цена должна быть числом");
                 priceField.setStyle("-fx-border-color: red;");
             }
 
-            // Валидация способа оплаты
             if (paymentMethodCombo.getValue() == null) {
                 errors.add("• Необходимо выбрать способ оплаты");
                 paymentMethodCombo.setStyle("-fx-border-color: red;");
             }
 
-            // Валидация типа питания
             if (mealTypeCombo.getValue() == null) {
                 errors.add("• Необходимо выбрать тип питания");
                 mealTypeCombo.setStyle("-fx-border-color: red;");
             }
 
-            // Валидация веса багажа
             if (!Validator.isNumeric(luggageField.getText())) {
                 errors.add("• Вес багажа должен быть числом");
                 luggageField.setStyle("-fx-border-color: red;");
             }
 
-            // Валидация даты покупки
             if (!Validator.isValidDate(purchaseDateField.getText())) {
                 errors.add("• Дата должна быть в формате ГГГГ-ММ-ДД");
                 purchaseDateField.setStyle("-fx-border-color: red;");
@@ -341,7 +323,6 @@ public class MaritimeBookingApp extends Application {
                 purchaseDateField.setStyle("-fx-border-color: red;");
             }
 
-            // Если есть ошибки, показываем их и прерываем выполнение
             if (!errors.isEmpty()) {
                 for (String error : errors) {
                     Label errorLabel = new Label(error);
@@ -369,7 +350,6 @@ public class MaritimeBookingApp extends Application {
                         purchaseDateField.getText());
                 showAlert(Alert.AlertType.INFORMATION, "Успех", "Билет успешно куплен!");
 
-                // Очищаем поля после успешной покупки, но оставляем без изменений списки
                 emailField.clear();
                 priceField.clear();
                 paymentMethodCombo.setValue(null);
@@ -378,10 +358,6 @@ public class MaritimeBookingApp extends Application {
                 luggageField.clear();
                 purchaseDateField.setText(java.time.LocalDate.now().toString());
 
-                // Не сбрасываем выбор рейса, судна и каюты для удобства при повторной покупке
-                // voyageCombo.setValue(null);
-                // vesselCombo.setValue(null);
-                // cabinCombo.setValue(null);
             } catch (SQLException ex1) {
                 Label errorLabel = new Label("• " + ex1.getMessage());
                 errorLabel.setStyle("-fx-text-fill: red; -fx-font-size: 12px;");
@@ -512,18 +488,15 @@ public class MaritimeBookingApp extends Application {
         TextField passportField = new TextField();
         passportField.setPromptText("Серия паспорта (10 цифр)");
 
-        // Замена обычного Label на VBox со списком ошибок
         VBox errorBox = new VBox(5);
         errorBox.setAlignment(Pos.CENTER_LEFT);
         errorBox.setPadding(new Insets(5, 0, 5, 0));
 
-        // Установка текущей даты в поле даты рождения
         birthDateField.setText(java.time.LocalDate.now().toString());
 
         Button addClientBtn = new Button("Добавить клиента");
 
         addClientBtn.setOnAction(e -> {
-            // Очищаем предыдущие ошибки и стили
             errorBox.getChildren().clear();
             emailField.setStyle("");
             lastNameField.setStyle("");
@@ -532,10 +505,8 @@ public class MaritimeBookingApp extends Application {
             birthDateField.setStyle("");
             passportField.setStyle("");
 
-            // Список для ошибок
             java.util.List<String> errors = new java.util.ArrayList<>();
 
-            // Валидация email
             if (!Validator.isNotEmpty(emailField.getText())) {
                 errors.add("• Необходимо указать Email");
                 emailField.setStyle("-fx-border-color: red;");
@@ -544,7 +515,6 @@ public class MaritimeBookingApp extends Application {
                 emailField.setStyle("-fx-border-color: red;");
             }
 
-            // Проверка уникальности email
             if (Validator.isValidEmail(emailField.getText())) {
                 try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
                     if (JDBCManager.checkCustomerExists(connection, emailField.getText())) {
@@ -556,7 +526,6 @@ public class MaritimeBookingApp extends Application {
                 }
             }
 
-            // Валидация фамилии
             if (!Validator.isNotEmpty(lastNameField.getText())) {
                 errors.add("• Необходимо указать фамилию");
                 lastNameField.setStyle("-fx-border-color: red;");
@@ -565,7 +534,6 @@ public class MaritimeBookingApp extends Application {
                 lastNameField.setStyle("-fx-border-color: red;");
             }
 
-            // Валидация имени
             if (!Validator.isNotEmpty(firstNameField.getText())) {
                 errors.add("• Необходимо указать имя");
                 firstNameField.setStyle("-fx-border-color: red;");
@@ -574,7 +542,6 @@ public class MaritimeBookingApp extends Application {
                 firstNameField.setStyle("-fx-border-color: red;");
             }
 
-            // Валидация отчества
             if (Validator.isNotEmpty(middleNameField.getText()) &&
                     !Validator.isAlphabetic(middleNameField.getText())) {
                 errors.add("• Отчество должно содержать только буквы");
@@ -583,7 +550,6 @@ public class MaritimeBookingApp extends Application {
                 middleNameField.setStyle("");
             }
 
-            // Валидация даты рождения
             if (!Validator.isValidDate(birthDateField.getText())) {
                 errors.add("• Дата должна быть в формате ГГГГ-ММ-ДД");
                 birthDateField.setStyle("-fx-border-color: red;");
@@ -592,13 +558,11 @@ public class MaritimeBookingApp extends Application {
                 birthDateField.setStyle("-fx-border-color: red;");
             }
 
-            // Валидация паспорта - ровно 10 цифр
             if (!passportField.getText().matches("^\\d{10}$")) {
                 errors.add("• Серия паспорта должна содержать ровно 10 цифр");
                 passportField.setStyle("-fx-border-color: red;");
             }
 
-            // Если есть ошибки, показываем их и прерываем выполнение
             if (!errors.isEmpty()) {
                 for (String error : errors) {
                     Label errorLabel = new Label(error);
@@ -619,7 +583,6 @@ public class MaritimeBookingApp extends Application {
 
                 showAlert(Alert.AlertType.INFORMATION, "Успех", "Клиент успешно добавлен!");
 
-                // Очищаем поля после успешного добавления
                 emailField.clear();
                 lastNameField.clear();
                 firstNameField.clear();
@@ -867,7 +830,6 @@ public class MaritimeBookingApp extends Application {
         table.getColumns().add(idCol);
         table.getColumns().add(statusCol);
 
-        // Загружаем доступные статусы из базы данных
         try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
             var rs = JDBCManager.getAvailableVoyageStatuses(connection);
             while (rs.next()) {
@@ -986,7 +948,6 @@ public class MaritimeBookingApp extends Application {
         TextField passportField = new TextField();
         passportField.setPromptText("Серия паспорта (10 цифр)");
 
-        // Установка текущей даты в поле даты рождения
         birthDateField.setText(java.time.LocalDate.now().toString());
 
         Label voyageLabel = new Label("Выберите рейс:");
@@ -1002,12 +963,10 @@ public class MaritimeBookingApp extends Application {
         ComboBox<String> cabinCombo = new ComboBox<>();
         cabinCombo.setPromptText("ID каюты");
 
-        // Замена обычного Label на VBox со списком ошибок
         VBox errorBox = new VBox(5);
         errorBox.setAlignment(Pos.CENTER_LEFT);
         errorBox.setPadding(new Insets(5, 0, 5, 0));
 
-        // Сохраняем полный список кают для повторного использования
         ObservableList<String> allCabins = FXCollections.observableArrayList();
 
         try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
@@ -1038,13 +997,11 @@ public class MaritimeBookingApp extends Application {
             if (voyageCombo.getValue() != null) {
                 String vesselId = voyageCombo.getValue().split("IMO: ")[1].replace(")", "");
 
-                // Находим соответствующее судно и устанавливаем его
                 vesselCombo.setValue(vesselCombo.getItems().stream()
                         .filter(item -> item.startsWith(vesselId))
                         .findFirst()
                         .orElse(null));
 
-                // Автоматическая подстановка каюты при выборе рейса
                 if (vesselCombo.getValue() != null) {
                     String cabinVesselId = vesselCombo.getValue().split(" ")[0];
                     ObservableList<String> filteredCabins = FXCollections.observableArrayList(
@@ -1079,7 +1036,6 @@ public class MaritimeBookingApp extends Application {
 
         TextField purchaseDateField = new TextField();
         purchaseDateField.setPromptText("Дата покупки (ГГГГ-ММ-ДД)");
-        // Установка текущей даты в поле даты покупки
         purchaseDateField.setText(java.time.LocalDate.now().toString());
 
         Button addBtn = new Button("Добавить клиента и билет");
@@ -1087,7 +1043,6 @@ public class MaritimeBookingApp extends Application {
         table.setPrefHeight(250);
 
         addBtn.setOnAction(e -> {
-            // Очищаем предыдущие ошибки и стили
             errorBox.getChildren().clear();
             emailField.setStyle("");
             lastNameField.setStyle("");
@@ -1104,10 +1059,8 @@ public class MaritimeBookingApp extends Application {
             luggageField.setStyle("");
             purchaseDateField.setStyle("");
 
-            // Список для ошибок
             java.util.List<String> errors = new java.util.ArrayList<>();
 
-            // Валидация email
             if (!Validator.isNotEmpty(emailField.getText())) {
                 errors.add("• Необходимо указать Email");
                 emailField.setStyle("-fx-border-color: red;");
@@ -1116,7 +1069,6 @@ public class MaritimeBookingApp extends Application {
                 emailField.setStyle("-fx-border-color: red;");
             }
 
-            // Проверка уникальности email
             if (Validator.isValidEmail(emailField.getText())) {
                 try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
                     if (JDBCManager.checkCustomerExists(connection, emailField.getText())) {
@@ -1128,7 +1080,6 @@ public class MaritimeBookingApp extends Application {
                 }
             }
 
-            // Валидация фамилии
             if (!Validator.isNotEmpty(lastNameField.getText())) {
                 errors.add("• Необходимо указать фамилию");
                 lastNameField.setStyle("-fx-border-color: red;");
@@ -1137,7 +1088,6 @@ public class MaritimeBookingApp extends Application {
                 lastNameField.setStyle("-fx-border-color: red;");
             }
 
-            // Валидация имени
             if (!Validator.isNotEmpty(firstNameField.getText())) {
                 errors.add("• Необходимо указать имя");
                 firstNameField.setStyle("-fx-border-color: red;");
@@ -1146,7 +1096,6 @@ public class MaritimeBookingApp extends Application {
                 firstNameField.setStyle("-fx-border-color: red;");
             }
 
-            // Валидация отчества
             if (Validator.isNotEmpty(middleNameField.getText()) &&
                     !Validator.isAlphabetic(middleNameField.getText())) {
                 errors.add("• Отчество должно содержать только буквы");
@@ -1155,7 +1104,6 @@ public class MaritimeBookingApp extends Application {
                 middleNameField.setStyle("");
             }
 
-            // Валидация даты рождения
             if (!Validator.isValidDate(birthDateField.getText())) {
                 errors.add("• Дата рождения должна быть в формате ГГГГ-ММ-ДД");
                 birthDateField.setStyle("-fx-border-color: red;");
@@ -1164,55 +1112,46 @@ public class MaritimeBookingApp extends Application {
                 birthDateField.setStyle("-fx-border-color: red;");
             }
 
-            // Валидация паспорта - ровно 10 цифр
             if (!passportField.getText().matches("^\\d{10}$")) {
                 errors.add("• Серия паспорта должна содержать ровно 10 цифр");
                 passportField.setStyle("-fx-border-color: red;");
             }
 
-            // Валидация рейса
             if (voyageCombo.getValue() == null) {
                 errors.add("• Необходимо выбрать рейс");
                 voyageCombo.setStyle("-fx-border-color: red;");
             }
 
-            // Валидация судна
             if (vesselCombo.getValue() == null) {
                 errors.add("• Необходимо выбрать судно");
                 vesselCombo.setStyle("-fx-border-color: red;");
             }
 
-            // Валидация каюты
             if (cabinCombo.getValue() == null) {
                 errors.add("• Необходимо выбрать каюту");
                 cabinCombo.setStyle("-fx-border-color: red;");
             }
 
-            // Валидация цены
             if (!Validator.isNumeric(priceField.getText())) {
                 errors.add("• Цена должна быть числом");
                 priceField.setStyle("-fx-border-color: red;");
             }
 
-            // Валидация способа оплаты
             if (paymentMethodCombo.getValue() == null) {
                 errors.add("• Необходимо выбрать способ оплаты");
                 paymentMethodCombo.setStyle("-fx-border-color: red;");
             }
 
-            // Валидация типа питания
             if (mealTypeCombo.getValue() == null) {
                 errors.add("• Необходимо выбрать тип питания");
                 mealTypeCombo.setStyle("-fx-border-color: red;");
             }
 
-            // Валидация веса багажа
             if (!Validator.isInteger(luggageField.getText())) {
                 errors.add("• Вес багажа должен быть целым числом");
                 luggageField.setStyle("-fx-border-color: red;");
             }
 
-            // Валидация даты покупки
             if (!Validator.isValidDate(purchaseDateField.getText())) {
                 errors.add("• Дата покупки должна быть в формате ГГГГ-ММ-ДД");
                 purchaseDateField.setStyle("-fx-border-color: red;");
@@ -1221,7 +1160,6 @@ public class MaritimeBookingApp extends Application {
                 purchaseDateField.setStyle("-fx-border-color: red;");
             }
 
-            // Если есть ошибки, показываем их и прерываем выполнение
             if (!errors.isEmpty()) {
                 for (String error : errors) {
                     Label errorLabel = new Label(error);
@@ -1262,7 +1200,6 @@ public class MaritimeBookingApp extends Application {
                     showAlert(Alert.AlertType.INFORMATION, "Успех", "Клиент и билет успешно добавлены!");
                     showTable("SELECT * FROM maritime_booking.customers", table);
 
-                    // Очищаем поля после успешного добавления
                     emailField.clear();
                     lastNameField.clear();
                     firstNameField.clear();
@@ -1276,7 +1213,6 @@ public class MaritimeBookingApp extends Application {
                     luggageField.clear();
                     purchaseDateField.setText(java.time.LocalDate.now().toString());
 
-                    // Не сбрасываем выбор рейса, судна и каюты для удобства
                 } catch (SQLException ex) {
                     Label errorLabel = new Label("• " + ex.getMessage());
                     errorLabel.setStyle("-fx-text-fill: red; -fx-font-size: 12px;");
@@ -1343,12 +1279,10 @@ public class MaritimeBookingApp extends Application {
         ComboBox<String> vesselCombo = new ComboBox<>();
         vesselCombo.setPromptText("IMO судна");
 
-        // Замена обычного Label на VBox со списком ошибок
         VBox errorBox = new VBox(5);
         errorBox.setAlignment(Pos.CENTER_LEFT);
         errorBox.setPadding(new Insets(5, 0, 5, 0));
 
-        // Создаем таблицы для отображения
         Label voyagesLabel = new Label("Таблица рейсов:");
         TableView<ObservableList<String>> voyagesTable = new TableView<>();
         voyagesTable.setPrefHeight(150);
@@ -1386,7 +1320,6 @@ public class MaritimeBookingApp extends Application {
                         .findFirst()
                         .orElse(null));
 
-                // При выборе рейса сразу отображаем билеты и этапы этого рейса
                 if (voyageCombo.getValue() != null && vesselCombo.getValue() != null) {
                     String voyageId = voyageCombo.getValue().split(" ")[0];
                     String vesselId = vesselCombo.getValue().split(" ")[0];
@@ -1410,11 +1343,9 @@ public class MaritimeBookingApp extends Application {
         deleteBtn.setStyle(
                 "-fx-font-weight: bold; -fx-background-color: #E53935; -fx-text-fill: white; -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
 
-        // Первоначальное заполнение таблицы рейсов
         showTable("SELECT * FROM maritime_booking.voyages", voyagesTable);
 
         deleteBtn.setOnAction(e -> {
-            // Очищаем предыдущие ошибки
             errorBox.getChildren().clear();
             voyageCombo.setStyle("");
             vesselCombo.setStyle("");
@@ -1436,7 +1367,6 @@ public class MaritimeBookingApp extends Application {
             String voyageId = voyageCombo.getValue().split(" ")[0];
             String vesselId = vesselCombo.getValue().split(" ")[0];
 
-            // Подтверждение удаления
             Alert confirmAlert = new Alert(Alert.AlertType.CONFIRMATION);
             confirmAlert.setTitle("Подтверждение");
             confirmAlert.setHeaderText("Удаление рейса");
@@ -1446,18 +1376,15 @@ public class MaritimeBookingApp extends Application {
             Optional<ButtonType> result = confirmAlert.showAndWait();
             if (result.isPresent() && result.get() == ButtonType.OK) {
                 try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
-                    // Удаляем рейс
                     JDBCManager.deleteVoyage(connection, Integer.parseInt(voyageId), vesselId);
 
                     Label successLabel = new Label("• Рейс " + voyageId + " и всё связанное удалено!");
                     successLabel.setStyle("-fx-text-fill: green; -fx-font-size: 12px;");
                     errorBox.getChildren().add(successLabel);
 
-                    // Очищаем значения комбобоксов
                     voyageCombo.setValue(null);
                     vesselCombo.setValue(null);
 
-                    // Обновляем комбобокс рейсов
                     voyageCombo.getItems().clear();
                     var rs = JDBCManager.getVoyagesWithVessels(connection);
                     while (rs.next()) {
@@ -1465,10 +1392,8 @@ public class MaritimeBookingApp extends Application {
                                 " - " + rs.getString("name") + ")");
                     }
 
-                    // Обновляем таблицу рейсов
                     showTable("SELECT * FROM maritime_booking.voyages", voyagesTable);
 
-                    // Проверяем реальное отсутствие данных в базе через SQL-запросы
                     showTable("SELECT * FROM maritime_booking.tickets WHERE voyage_id = " + voyageId +
                             " AND vessel_id = '" + vesselId + "'", ticketsTable);
                     showTable("SELECT * FROM maritime_booking.voyage_stages WHERE voyage_id = " + voyageId +
@@ -1488,7 +1413,6 @@ public class MaritimeBookingApp extends Application {
         form.setAlignment(Pos.CENTER);
         form.setMaxWidth(350);
 
-        // Добавляем все компоненты в scrollPane для возможности прокрутки
         VBox tablesVBox = new VBox(10, voyagesLabel, voyagesTable, ticketsLabel, ticketsTable, stagesLabel,
                 stagesTable);
         ScrollPane scrollPane = new ScrollPane(tablesVBox);
@@ -1516,7 +1440,6 @@ public class MaritimeBookingApp extends Application {
         TextField dateField = new TextField();
         dateField.setPromptText("Дата");
 
-        // Замена обычного Label на VBox со списком ошибок
         VBox errorBox = new VBox(5);
         errorBox.setAlignment(Pos.CENTER_LEFT);
         errorBox.setPadding(new Insets(5, 0, 5, 0));
@@ -1530,7 +1453,6 @@ public class MaritimeBookingApp extends Application {
         TableView<ObservableList<String>> table = new TableView<>();
         table.setPrefHeight(350);
 
-        // Колонки добавляем один раз
         TableColumn<ObservableList<String>, String> idCol = new TableColumn<>("ID билета");
         idCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().get(0)));
         idCol.setPrefWidth(100);
@@ -1553,7 +1475,6 @@ public class MaritimeBookingApp extends Application {
         table.getColumns().add(dateCol);
 
         showFutureBtn.setOnAction(e -> {
-            // Очищаем предыдущие ошибки и сбрасываем стили полей
             errorBox.getChildren().clear();
             weightField.setStyle("");
             dateField.setStyle("");
@@ -1613,7 +1534,6 @@ public class MaritimeBookingApp extends Application {
         });
 
         updateBtn.setOnAction(e -> {
-            // Очищаем предыдущие ошибки и сбрасываем стили полей
             errorBox.getChildren().clear();
             weightField.setStyle("");
             dateField.setStyle("");
@@ -1660,7 +1580,7 @@ public class MaritimeBookingApp extends Application {
                     row.add(rs.getString("id"));
                     row.add(rs.getString("luggage_weight"));
                     row.add(rs.getString("price"));
-                    row.add(rs.getString("price")); // После обновления текущая цена = обновленная
+                    row.add(rs.getString("price"));
                     row.add(rs.getString("purchase_date"));
                     data.add(row);
                     rowCount++;
@@ -2030,7 +1950,6 @@ public class MaritimeBookingApp extends Application {
         ComboBox<String> countryCombo = new ComboBox<>();
         countryCombo.setPromptText("Страна");
 
-        // Загрузка стран, где есть билеты со страховкой
         try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
             var rs = JDBCManager.getCountriesWithInsuredTickets(connection);
             while (rs.next()) {
@@ -2113,7 +2032,6 @@ public class MaritimeBookingApp extends Application {
                 return;
             }
 
-            // Проверка на SELECT запрос
             if (!query.toLowerCase().startsWith("select")) {
                 errorLabel.setText("Разрешены только SELECT запросы!");
                 return;
@@ -2128,7 +2046,6 @@ public class MaritimeBookingApp extends Application {
                 var rsmd = rs.getMetaData();
                 int columnCount = rsmd.getColumnCount();
 
-                // Создаем колонки
                 for (int i = 1; i <= columnCount; i++) {
                     final int colIndex = i - 1;
                     TableColumn<ObservableList<String>, String> col = new TableColumn<>(rsmd.getColumnName(i));
@@ -2138,7 +2055,6 @@ public class MaritimeBookingApp extends Application {
                     table.getColumns().add(col);
                 }
 
-                // Заполняем данные
                 ObservableList<ObservableList<String>> data = FXCollections.observableArrayList();
                 while (rs.next()) {
                     ObservableList<String> row = FXCollections.observableArrayList();
