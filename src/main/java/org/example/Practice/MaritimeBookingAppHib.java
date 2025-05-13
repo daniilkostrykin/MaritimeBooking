@@ -324,9 +324,7 @@ public class MaritimeBookingAppHib extends Application {
                 VoyageId voyageIdObj = new VoyageId();
                 voyageIdObj.setId(Long.parseLong(voyageId));
                 voyageIdObj.setVesselId(vesselId);
-                Voyage voyage = voyageDAO.findById(voyageIdObj);
 
-                Cabin cabin = cabinDAO.findById(Long.parseLong(cabinId), vesselId);
 
                 // Создаем новый билет
                 Ticket ticket = new Ticket();
@@ -718,7 +716,7 @@ public class MaritimeBookingAppHib extends Application {
         TableView<ObservableList<String>> tableView = new TableView<>();
 
         // Получаем список таблиц через HibernateUtil и метаданные
-        try (Session session = HibernateUtil.getSessionFactory().openSession()) {
+        try (Session _ = HibernateUtil.getSessionFactory().openSession()) {
             // Получаем список классов-сущностей
             String[] entities = { "Customer", "Vessel", "Voyage", "Cabin", "Ticket", "Port", "VoyageStage" };
             for (String entity : entities) {
@@ -1337,7 +1335,6 @@ public class MaritimeBookingAppHib extends Application {
         table.getColumns().add(dateCol);
 
         // Используем TicketDAO
-        TicketDAO ticketDAO = new TicketDAO();
 
         showFutureBtn.setOnAction(e -> {
             String minWeight = weightField.getText().trim();
@@ -1354,7 +1351,6 @@ public class MaritimeBookingAppHib extends Application {
             futureCol.setText("Будущая обновленная цена");
 
             try {
-                LocalDate parseDate = LocalDate.parse(date);
 
                 try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
                     String sql = "SELECT t.id, t.luggage_weight, t.price, " +

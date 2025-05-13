@@ -105,10 +105,14 @@ public class MaritimeBookingApp extends Application {
         totalRevenueTab.setClosable(false);
         totalRevenueTab.setContent(createTotalRevenueTab());
 
+        Tab customQueryTab = new Tab("Произвольный SQL-запрос");
+        customQueryTab.setClosable(false);
+        customQueryTab.setContent(createCustomQueryTab());
+
         tabPane.getTabs().addAll(universalTab, buyTicketTab, addClientTab, ticketsForYearWithPriceTab,
                 ticketsByClientTab, clientsByMealTab, completedVoyagesTab, insuredTicketsFromCountryTab,
                 addClientAndTicketTab, deleteVoyageTab, luggagePriceUpdateTab, voyageRouteTab, ticketSalesTab,
-                avgCheckTab, totalRevenueTab);
+                avgCheckTab, totalRevenueTab, customQueryTab);
 
         ComboBox<String> themeCombo = new ComboBox<>();
         themeCombo.getItems().addAll("Тёмная", "Светлая");
@@ -2074,6 +2078,88 @@ public class MaritimeBookingApp extends Application {
         VBox form = new VBox(10, countryLabel, countryCombo);
         form.setAlignment(Pos.CENTER);
         form.setMaxWidth(350);
+
+        vbox.getChildren().clear();
+        vbox.getChildren().addAll(title, form, table);
+        vbox.setAlignment(Pos.CENTER);
+        return vbox;
+    }
+
+    private VBox createCustomQueryTab() {
+        VBox vbox = new VBox(20);
+        vbox.setPadding(new Insets(30));
+        vbox.setAlignment(Pos.CENTER);
+
+        Label title = new Label("Произвольный SQL-запрос");
+        title.setStyle("-fx-font-size: 20px; -fx-font-weight: bold;");
+
+        TextArea queryArea = new TextArea();
+        queryArea.setPromptText("Введите SQL-запрос...");
+        queryArea.setPrefRowCount(5);
+        queryArea.setWrapText(true);
+
+        Label errorLabel = new Label("");
+        errorLabel.setStyle("-fx-text-fill: red; -fx-font-size: 12px;");
+
+        Button executeBtn = new Button("Выполнить запрос");
+
+        TableView<ObservableList<String>> table = new TableView<>();
+        table.setPrefHeight(400);
+
+        executeBtn.setOnAction(e -> {
+            String query = queryArea.getText().trim();
+            if (query.isEmpty()) {
+                errorLabel.setText("Введите SQL-запрос!");
+                return;
+            }
+
+            // Проверка на SELECT запрос
+            if (!query.toLowerCase().startsWith("select")) {
+                errorLabel.setText("Разрешены только SELECT запросы!");
+                return;
+            }
+
+            table.getColumns().clear();
+            table.getItems().clear();
+            errorLabel.setText("");
+
+            try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
+                var rs = JDBCManager.executeQuery(connection, query);
+                var rsmd = rs.getMetaData();
+                int columnCount = rsmd.getColumnCount();
+
+                // Создаем колонки
+                for (int i = 1; i <= columnCount; i++) {
+                    final int colIndex = i - 1;
+                    TableColumn<ObservableList<String>, String> col = new TableColumn<>(rsmd.getColumnName(i));
+                    col.setCellValueFactory(
+                            data -> new javafx.beans.property.SimpleStringProperty(data.getValue().get(colIndex)));
+                    col.setPrefWidth(120);
+                    table.getColumns().add(col);
+                }
+
+                // Заполняем данные
+                ObservableList<ObservableList<String>> data = FXCollections.observableArrayList();
+                while (rs.next()) {
+                    ObservableList<String> row = FXCollections.observableArrayList();
+                    for (int i = 1; i <= columnCount; i++) {
+                        row.add(rs.getString(i));
+                    }
+                    data.add(row);
+                }
+                table.setItems(data);
+
+                if (data.isEmpty()) {
+                    errorLabel.setText("Запрос выполнен успешно, но не вернул данных");
+                }
+            } catch (SQLException ex) {
+                errorLabel.setText("Ошибка выполнения запроса: " + ex.getMessage());
+            }
+        });
+
+        VBox form = new VBox(10, queryArea, errorLabel, executeBtn);
+        form.setAlignment(Pos.CENTER);
+        form.setMaxWidth(800);
 
         vbox.getChildren().clear();
         vbox.getChildren().addAll(title, form, table);
