@@ -417,20 +417,20 @@ public class MaritimeBookingApp extends Application {
         ComboBox<String> yearCombo = new ComboBox<>();
         yearCombo.setPromptText("Год");
 
+        Label errorLabel = new Label("");
+        errorLabel.setStyle("-fx-text-fill: red; -fx-font-size: 12px;");
+
         try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
             var rs = JDBCManager.getAvailableYears(connection);
             while (rs.next()) {
                 yearCombo.getItems().add(rs.getString("year"));
             }
         } catch (SQLException e) {
-            showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить список лет: " + e.getMessage());
+            errorLabel.setText("Не удалось загрузить список лет: " + e.getMessage());
         }
 
         TextField priceField = new TextField();
         priceField.setPromptText("Максимальная цена");
-
-        Label errorLabel = new Label("");
-        errorLabel.setStyle("-fx-text-fill: red; -fx-font-size: 12px;");
 
         Button filterBtn = new Button("Показать билеты");
 
@@ -452,9 +452,10 @@ public class MaritimeBookingApp extends Application {
             String year = yearCombo.getValue();
             String maxPrice = priceField.getText().trim();
             if (year == null || maxPrice.isEmpty()) {
-                showAlert(Alert.AlertType.ERROR, "Ошибка", "Выберите год и введите максимальную цену!");
+                errorLabel.setText("Выберите год и введите максимальную цену!");
                 return;
             }
+
             ObservableList<ObservableList<String>> data = FXCollections.observableArrayList();
             try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
                 var rs = JDBCManager.getTicketsForYearWithPrice(connection, Integer.parseInt(year),
@@ -466,8 +467,13 @@ public class MaritimeBookingApp extends Application {
                     data.add(row);
                 }
                 table.setItems(data);
+                if (data.isEmpty()) {
+                    errorLabel.setText("Билетов с ценой меньше " + maxPrice + " за " + year + " год не найдено");
+                } else {
+                    errorLabel.setText("");
+                }
             } catch (SQLException ex) {
-                showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить данные: " + ex.getMessage());
+                errorLabel.setText("Не удалось загрузить данные: " + ex.getMessage());
             }
         });
 
@@ -651,6 +657,9 @@ public class MaritimeBookingApp extends Application {
         ComboBox<String> emailCombo = new ComboBox<>();
         emailCombo.setPromptText("Email клиента");
 
+        Label errorLabel = new Label("");
+        errorLabel.setStyle("-fx-text-fill: red; -fx-font-size: 12px;");
+
         try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
             var rs = JDBCManager.getCustomersWithTickets(connection);
             while (rs.next()) {
@@ -658,7 +667,7 @@ public class MaritimeBookingApp extends Application {
                         " (" + rs.getString("last_name") + " " + rs.getString("first_name") + ")");
             }
         } catch (SQLException e) {
-            showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить список клиентов: " + e.getMessage());
+            errorLabel.setText("Не удалось загрузить список клиентов: " + e.getMessage());
         }
 
         TableView<ObservableList<String>> table = new TableView<>();
@@ -686,12 +695,13 @@ public class MaritimeBookingApp extends Application {
                     data.add(FXCollections.observableArrayList(rs.getString("id"), rs.getString("price")));
                 }
                 table.setItems(data);
+                errorLabel.setText("");
             } catch (SQLException ex) {
-                showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить данные: " + ex.getMessage());
+                errorLabel.setText("Не удалось загрузить данные: " + ex.getMessage());
             }
         });
 
-        VBox form = new VBox(10, label, emailCombo);
+        VBox form = new VBox(10, label, emailCombo, errorLabel);
         form.setAlignment(Pos.CENTER);
         form.setMaxWidth(350);
 
@@ -714,6 +724,9 @@ public class MaritimeBookingApp extends Application {
         mealTypeCombo.getItems().addAll("no_meals", "breakfast", "half_board", "full_board", "all_inclusive",
                 "ultra_all_inclusive");
         mealTypeCombo.setPromptText("Тип питания");
+
+        Label errorLabel = new Label("");
+        errorLabel.setStyle("-fx-text-fill: red; -fx-font-size: 12px;");
 
         TableView<ObservableList<String>> table = new TableView<>();
         table.setPrefHeight(400);
@@ -742,12 +755,13 @@ public class MaritimeBookingApp extends Application {
                     data.add(row);
                 }
                 table.setItems(data);
+                errorLabel.setText("");
             } catch (SQLException ex) {
-                showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить данные: " + ex.getMessage());
+                errorLabel.setText("Не удалось загрузить данные: " + ex.getMessage());
             }
         });
 
-        VBox form = new VBox(10, label, mealTypeCombo);
+        VBox form = new VBox(10, label, mealTypeCombo, errorLabel);
         form.setAlignment(Pos.CENTER);
         form.setMaxWidth(350);
 
@@ -829,17 +843,14 @@ public class MaritimeBookingApp extends Application {
 
         Label statusLabel = new Label("Выберите статус рейса:");
         ComboBox<String> statusCombo = new ComboBox<>();
-        // Удаляем хардкод статусов
-        // statusCombo.getItems().addAll("active", "delayed", "completed", "cancelled",
-        // "postponed", "in_progress");
         statusCombo.setPromptText("Статус рейса");
 
         Label mealLabel = new Label("Выберите тип питания:");
         ComboBox<String> mealCombo = new ComboBox<>();
         mealCombo.setPromptText("Тип питания");
 
-        Label infoLabel = new Label("");
-        infoLabel.setStyle("-fx-font-style: italic; -fx-text-fill: gray;");
+        Label errorLabel = new Label("");
+        errorLabel.setStyle("-fx-text-fill: red; -fx-font-size: 12px;");
 
         TableView<ObservableList<String>> table = new TableView<>();
         table.setPrefHeight(400);
@@ -860,10 +871,10 @@ public class MaritimeBookingApp extends Application {
             }
 
             if (statusCombo.getItems().isEmpty()) {
-                infoLabel.setText("В базе данных нет рейсов");
+                errorLabel.setText("В базе данных нет рейсов");
             }
         } catch (SQLException e) {
-            showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить список статусов: " + e.getMessage());
+            errorLabel.setText("Не удалось загрузить список статусов: " + e.getMessage());
         }
 
         Runnable updateTable = () -> {
@@ -882,15 +893,14 @@ public class MaritimeBookingApp extends Application {
                     data.add(row);
                 }
                 table.setItems(data);
+                errorLabel.setText("");
 
                 if (data.isEmpty()) {
-                    infoLabel.setText("Нет данных для выбранного статуса и типа питания");
-                } else {
-                    infoLabel.setText("");
+                    errorLabel.setText("Нет данных для выбранного статуса и типа питания");
                 }
 
             } catch (SQLException ex) {
-                showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить данные: " + ex.getMessage());
+                errorLabel.setText("Не удалось загрузить данные: " + ex.getMessage());
             }
         };
 
@@ -902,13 +912,13 @@ public class MaritimeBookingApp extends Application {
 
             mealCombo.getItems().clear();
             table.getItems().clear();
-            infoLabel.setText("");
+            errorLabel.setText("");
 
             try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
                 boolean hasVoyages = JDBCManager.hasVoyagesWithStatus(connection, status);
 
                 if (!hasVoyages) {
-                    infoLabel.setText("Нет рейсов с таким статусом");
+                    errorLabel.setText("Нет рейсов с таким статусом");
                     return;
                 }
 
@@ -928,10 +938,10 @@ public class MaritimeBookingApp extends Application {
                     }
                 } else {
                     mealCombo.setPromptText("Нет доступных типов питания");
-                    infoLabel.setText("Для рейсов с таким статусом нет билетов с питанием");
+                    errorLabel.setText("Для рейсов с таким статусом нет билетов с питанием");
                 }
             } catch (SQLException ex) {
-                showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить типы питания: " + ex.getMessage());
+                errorLabel.setText("Не удалось загрузить типы питания: " + ex.getMessage());
             }
         });
 
@@ -941,7 +951,7 @@ public class MaritimeBookingApp extends Application {
             }
         });
 
-        VBox form = new VBox(10, statusLabel, statusCombo, mealLabel, mealCombo, infoLabel);
+        VBox form = new VBox(10, statusLabel, statusCombo, mealLabel, mealCombo, errorLabel);
         form.setAlignment(Pos.CENTER);
         form.setMaxWidth(350);
         vbox.getChildren().clear();
@@ -1702,7 +1712,6 @@ public class MaritimeBookingApp extends Application {
 
         TableView<ObservableList<String>> table = new TableView<>();
         table.setPrefHeight(400);
-
         String[] columnNames = {
                 "ID рейса", "ID судна", "Название судна", "Статус рейса", "№ остановки",
                 "Код порта отправления", "Порт отправления", "Город отправления", "Страна отправления",
