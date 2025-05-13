@@ -829,7 +829,9 @@ public class MaritimeBookingApp extends Application {
 
         Label statusLabel = new Label("Выберите статус рейса:");
         ComboBox<String> statusCombo = new ComboBox<>();
-        statusCombo.getItems().addAll("active", "delayed", "completed", "cancelled", "postponed", "in_progress");
+        // Удаляем хардкод статусов
+        // statusCombo.getItems().addAll("active", "delayed", "completed", "cancelled",
+        // "postponed", "in_progress");
         statusCombo.setPromptText("Статус рейса");
 
         Label mealLabel = new Label("Выберите тип питания:");
@@ -850,6 +852,20 @@ public class MaritimeBookingApp extends Application {
         table.getColumns().add(idCol);
         table.getColumns().add(statusCol);
 
+        // Загружаем доступные статусы из базы данных
+        try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
+            var rs = JDBCManager.getAvailableVoyageStatuses(connection);
+            while (rs.next()) {
+                statusCombo.getItems().add(rs.getString("status"));
+            }
+
+            if (statusCombo.getItems().isEmpty()) {
+                infoLabel.setText("В базе данных нет рейсов");
+            }
+        } catch (SQLException e) {
+            showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить список статусов: " + e.getMessage());
+        }
+
         Runnable updateTable = () -> {
             String status = statusCombo.getValue();
             String meal = mealCombo.getValue();
@@ -869,6 +885,8 @@ public class MaritimeBookingApp extends Application {
 
                 if (data.isEmpty()) {
                     infoLabel.setText("Нет данных для выбранного статуса и типа питания");
+                } else {
+                    infoLabel.setText("");
                 }
 
             } catch (SQLException ex) {
@@ -884,6 +902,7 @@ public class MaritimeBookingApp extends Application {
 
             mealCombo.getItems().clear();
             table.getItems().clear();
+            infoLabel.setText("");
 
             try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
                 boolean hasVoyages = JDBCManager.hasVoyagesWithStatus(connection, status);
@@ -923,98 +942,6 @@ public class MaritimeBookingApp extends Application {
         });
 
         VBox form = new VBox(10, statusLabel, statusCombo, mealLabel, mealCombo, infoLabel);
-        form.setAlignment(Pos.CENTER);
-        form.setMaxWidth(350);
-        vbox.getChildren().clear();
-        vbox.getChildren().addAll(title, form, table);
-        vbox.setAlignment(Pos.CENTER);
-        return vbox;
-    }
-
-    private VBox createInsuredTicketsFromCountryTab() {
-        VBox vbox = new VBox(20);
-        vbox.setPadding(new Insets(30));
-        vbox.setAlignment(Pos.CENTER);
-
-        Label title = new Label("Билеты со страховкой по стране");
-        title.setStyle("-fx-font-size: 20px; -fx-font-weight: bold;");
-
-        Label label = new Label("Выберите страну:");
-        ComboBox<String> countryCombo = new ComboBox<>();
-        countryCombo.setPromptText("Страна");
-
-        Label infoLabel = new Label("");
-        infoLabel.setStyle("-fx-font-style: italic; -fx-text-fill: gray;");
-
-        TableView<ObservableList<String>> table = new TableView<>();
-        table.setPrefHeight(400);
-
-        TableColumn<ObservableList<String>, String> idCol = new TableColumn<>("ID");
-        idCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().get(0)));
-        idCol.setPrefWidth(80);
-        TableColumn<ObservableList<String>, String> priceCol = new TableColumn<>("Цена");
-        priceCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().get(1)));
-        priceCol.setPrefWidth(120);
-        table.getColumns().add(idCol);
-        table.getColumns().add(priceCol);
-
-        try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
-            boolean hasInsuredTickets = JDBCManager.hasInsuredTickets(connection);
-
-            if (!hasInsuredTickets) {
-                infoLabel.setText("В системе нет билетов со страховкой");
-                countryCombo.setDisable(true);
-                countryCombo.setPromptText("Нет доступных стран");
-            } else {
-                var rs = JDBCManager.getCountriesWithInsuredTickets(connection);
-                boolean hasCountries = false;
-
-                while (rs.next()) {
-                    hasCountries = true;
-                    countryCombo.getItems().add(rs.getString("country"));
-                }
-
-                if (hasCountries) {
-
-                    if (countryCombo.getItems().size() == 1) {
-                        countryCombo.setValue(countryCombo.getItems().get(0));
-                    }
-                } else {
-                    infoLabel.setText("Нет стран с билетами со страховкой");
-                    countryCombo.setDisable(true);
-                    countryCombo.setPromptText("Нет доступных стран");
-                }
-            }
-        } catch (SQLException e) {
-            showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить список стран: " + e.getMessage());
-        }
-
-        countryCombo.setOnAction(e -> {
-            String country = countryCombo.getValue();
-            if (country == null) {
-                return;
-            }
-
-            ObservableList<ObservableList<String>> data = FXCollections.observableArrayList();
-            try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
-                var rs = JDBCManager.getInsuredTicketsByCountry(connection, country);
-                while (rs.next()) {
-                    ObservableList<String> row = FXCollections.observableArrayList();
-                    row.add(rs.getString("id"));
-                    row.add(rs.getString("price"));
-                    data.add(row);
-                }
-                table.setItems(data);
-
-                if (data.isEmpty()) {
-                    infoLabel.setText("Нет билетов со страховкой для выбранной страны");
-                }
-            } catch (SQLException ex) {
-                showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить данные: " + ex.getMessage());
-            }
-        });
-
-        VBox form = new VBox(10, label, countryCombo, infoLabel);
         form.setAlignment(Pos.CENTER);
         form.setMaxWidth(350);
         vbox.getChildren().clear();
@@ -2076,5 +2003,72 @@ public class MaritimeBookingApp extends Application {
         } catch (SQLException e) {
             showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить таблицу: " + e.getMessage());
         }
+    }
+
+    private VBox createInsuredTicketsFromCountryTab() {
+        VBox vbox = new VBox(20);
+        vbox.setPadding(new Insets(30));
+        vbox.setAlignment(Pos.CENTER);
+
+        Label title = new Label("Билеты со страховкой по стране");
+        title.setStyle("-fx-font-size: 20px; -fx-font-weight: bold;");
+
+        Label countryLabel = new Label("Выберите страну:");
+        ComboBox<String> countryCombo = new ComboBox<>();
+        countryCombo.setPromptText("Страна");
+
+        // Загрузка стран, где есть билеты со страховкой
+        try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
+            var rs = JDBCManager.getCountriesWithInsuredTickets(connection);
+            while (rs.next()) {
+                countryCombo.getItems().add(rs.getString("country"));
+            }
+        } catch (SQLException e) {
+            showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить список стран: " + e.getMessage());
+        }
+
+        TableView<ObservableList<String>> table = new TableView<>();
+        table.setPrefHeight(400);
+
+        TableColumn<ObservableList<String>, String> idCol = new TableColumn<>("ID билета");
+        idCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().get(0)));
+        idCol.setPrefWidth(100);
+
+        TableColumn<ObservableList<String>, String> priceCol = new TableColumn<>("Цена");
+        priceCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().get(1)));
+        priceCol.setPrefWidth(100);
+
+        table.getColumns().add(idCol);
+        table.getColumns().add(priceCol);
+
+        countryCombo.setOnAction(e -> {
+            String country = countryCombo.getValue();
+            if (country == null) {
+                return;
+            }
+
+            ObservableList<ObservableList<String>> data = FXCollections.observableArrayList();
+            try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
+                var rs = JDBCManager.getInsuredTicketsByCountry(connection, country);
+                while (rs.next()) {
+                    ObservableList<String> row = FXCollections.observableArrayList();
+                    row.add(rs.getString("id"));
+                    row.add(rs.getString("price"));
+                    data.add(row);
+                }
+                table.setItems(data);
+            } catch (SQLException ex) {
+                showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить данные: " + ex.getMessage());
+            }
+        });
+
+        VBox form = new VBox(10, countryLabel, countryCombo);
+        form.setAlignment(Pos.CENTER);
+        form.setMaxWidth(350);
+
+        vbox.getChildren().clear();
+        vbox.getChildren().addAll(title, form, table);
+        vbox.setAlignment(Pos.CENTER);
+        return vbox;
     }
 }

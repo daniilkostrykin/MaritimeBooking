@@ -225,36 +225,33 @@ public class JDBCManager {
 
     // Билеты со страховкой по стране - восьмая вкладка
     public static ResultSet getCountriesWithInsuredTickets(Connection connection) throws SQLException {
-        return connection.createStatement().executeQuery(
-                "SELECT DISTINCT p.country " +
-                        "FROM maritime_booking.ports p " +
-                        "JOIN maritime_booking.voyage_stages vs ON vs.departure_port_id = p.un_locode " +
-                        "JOIN maritime_booking.tickets t ON t.voyage_id = vs.voyage_id AND t.vessel_id = vs.vessel_id "
-                        +
-                        "WHERE t.insurance = true " +
-                        "ORDER BY p.country");
-    }
-
-    public static boolean hasInsuredTickets(Connection connection) throws SQLException {
-        String sql = "SELECT 1 FROM maritime_booking.tickets WHERE insurance = true LIMIT 1";
-        ResultSet rs = connection.createStatement().executeQuery(sql);
-        return rs.next();
+        String sql = """
+                SELECT DISTINCT ports.country
+                FROM maritime_booking.tickets
+                JOIN maritime_booking.voyages ON tickets.voyage_id = voyages.id AND tickets.vessel_id = voyages.vessel_id
+                JOIN maritime_booking.voyage_stages ON voyage_stages.voyage_id = voyages.id AND voyage_stages.vessel_id = voyages.vessel_id
+                JOIN maritime_booking.ports ON voyage_stages.departure_port_id = ports.un_locode
+                WHERE tickets.insurance = true
+                AND voyage_stages.stop_number = 1
+                ORDER BY ports.country;
+                """;
+        return executeQuery(connection, sql);
     }
 
     public static ResultSet getInsuredTicketsByCountry(Connection connection, String country) throws SQLException {
-        String sql = "SELECT tickets.id, tickets.price\n" +
-                "FROM maritime_booking.tickets\n" +
-                "JOIN maritime_booking.voyages ON tickets.voyage_id = voyages.id AND tickets.vessel_id = voyages.vessel_id\n"
-                +
-                "JOIN maritime_booking.voyage_stages ON voyage_stages.voyage_id = voyages.id AND voyage_stages.vessel_id = voyages.vessel_id\n"
-                +
-                "JOIN maritime_booking.ports ON voyage_stages.departure_port_id = ports.un_locode\n" +
-                "JOIN maritime_booking.customers ON tickets.email = customers.email\n" +
-                "WHERE ports.country = ? AND tickets.insurance = true AND voyage_stages.stop_number = 1\n" +
-                "ORDER BY tickets.id";
-        PreparedStatement ps = connection.prepareStatement(sql);
-        ps.setString(1, country.toLowerCase());
-        return ps.executeQuery();
+        String sql = """
+                SELECT tickets.id, tickets.price
+                FROM maritime_booking.tickets
+                JOIN maritime_booking.voyages ON tickets.voyage_id = voyages.id AND tickets.vessel_id = voyages.vessel_id
+                JOIN maritime_booking.voyage_stages ON voyage_stages.voyage_id = voyages.id AND voyage_stages.vessel_id = voyages.vessel_id
+                JOIN maritime_booking.ports ON voyage_stages.departure_port_id = ports.un_locode
+                WHERE ports.country = ?
+                AND tickets.insurance = true
+                AND voyage_stages.stop_number = 1;
+                """;
+        PreparedStatement stmt = connection.prepareStatement(sql);
+        stmt.setString(1, country);
+        return stmt.executeQuery();
     }
 
     // Добавить клиента и билет - девятая вкладка
@@ -441,6 +438,12 @@ public class JDBCManager {
                 "WHERE EXISTS (SELECT 1 FROM maritime_booking.voyage_stages vst " +
                 "WHERE vst.voyage_id = v.id AND vst.vessel_id = v.vessel_id) " +
                 "ORDER BY v.id";
+        return connection.createStatement().executeQuery(sql);
+    }
+
+    // Получение списка доступных статусов рейсов
+    public static ResultSet getAvailableVoyageStatuses(Connection connection) throws SQLException {
+        String sql = "SELECT DISTINCT status FROM maritime_booking.voyages ORDER BY status";
         return connection.createStatement().executeQuery(sql);
     }
 
