@@ -1,14 +1,20 @@
 package org.example.entity;
 
 import jakarta.persistence.*;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
 import java.time.LocalDate;
 import java.util.List;
 
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
 @Entity
 @Table(name = "customers", schema = "maritime_booking")
 public class Customer {
     @Id
-    @Column(length = 255)
+    @Column(name = "email", length = 255)
     private String email;
 
     @Column(name = "last_name", nullable = false, length = 50)

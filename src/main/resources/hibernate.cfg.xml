@@ -4,24 +4,35 @@
         "http://hibernate.sourceforge.net/hibernate-configuration-3.0.dtd">
 <hibernate-configuration>
     <session-factory>
-        <!-- Настройки подключения к базе данных -->
+        <!-- Database connection settings -->
         <property name="hibernate.connection.driver_class">org.postgresql.Driver</property>
         <property name="hibernate.connection.url">jdbc:postgresql://localhost:5433/sea_cruises</property>
         <property name="hibernate.connection.username">daniil</property>
         <property name="hibernate.connection.password">daniil</property>
 
-        <!-- Настройки Hibernate -->
-        <property name="hibernate.dialect">org.hibernate.dialect.PostgreSQLDialect</property>
-        <property name="hibernate.show_sql">true</property>
-        <property name="hibernate.format_sql">true</property>
-        <property name="hibernate.hbm2ddl.auto">update</property>
-        <property name="hibernate.default_schema">maritime_booking</property>
-
-        <!-- Настройки пула соединений -->
+        <!-- Connection pool settings -->
         <property name="hibernate.c3p0.min_size">5</property>
         <property name="hibernate.c3p0.max_size">20</property>
         <property name="hibernate.c3p0.timeout">300</property>
         <property name="hibernate.c3p0.max_statements">50</property>
         <property name="hibernate.c3p0.idle_test_period">3000</property>
+
+        <!-- SQL dialect -->
+        <property name="hibernate.dialect">org.hibernate.dialect.PostgreSQLDialect</property>
+
+        <!-- Echo all executed SQL to stdout -->
+        <property name="hibernate.show_sql">true</property>
+
+        <!-- Drop and re-create the database schema on startup -->
+        <property name="hibernate.hbm2ddl.auto">update</property>
+
+        <!-- Names the annotated entity class -->
+        <mapping class="org.example.entity.Customer"/>
+        <mapping class="org.example.entity.Vessel"/>
+        <mapping class="org.example.entity.Port"/>
+        <mapping class="org.example.entity.Voyage"/>
+        <mapping class="org.example.entity.VoyageStage"/>
+        <mapping class="org.example.entity.Cabin"/>
+        <mapping class="org.example.entity.Ticket"/>
     </session-factory>
 </hibernate-configuration> 

@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.geometry.Insets?>
+
+<VBox xmlns="http://javafx.com/javafx"
+      xmlns:fx="http://javafx.com/fxml"
+      fx:controller="org.example.controller.MainController"
+      spacing="10"
+      padding="10">
+    
+    <MenuBar>
+        <Menu text="File">
+            <MenuItem text="Exit" onAction="#handleExit"/>
+        </Menu>
+        <Menu text="View">
+            <MenuItem text="Ports" onAction="#showPorts"/>
+            <MenuItem text="Vessels" onAction="#showVessels"/>
+            <MenuItem text="Customers" onAction="#showCustomers"/>
+            <MenuItem text="Voyages" onAction="#showVoyages"/>
+            <MenuItem text="Tickets" onAction="#showTickets"/>
+        </Menu>
+    </MenuBar>
+
+    <TabPane VBox.vgrow="ALWAYS">
+        <Tab text="Ports" closable="false">
+            <VBox spacing="10">
+                <HBox spacing="10">
+                    <Button text="Add Port" onAction="#handleAddPort"/>
+                    <Button text="Edit Port" onAction="#handleEditPort"/>
+                    <Button text="Delete Port" onAction="#handleDeletePort"/>
+                </HBox>
+                <TableView fx:id="portsTable" VBox.vgrow="ALWAYS"/>
+            </VBox>
+        </Tab>
+        
+        <Tab text="Vessels" closable="false">
+            <VBox spacing="10">
+                <HBox spacing="10">
+                    <Button text="Add Vessel" onAction="#handleAddVessel"/>
+                    <Button text="Edit Vessel" onAction="#handleEditVessel"/>
+                    <Button text="Delete Vessel" onAction="#handleDeleteVessel"/>
+                </HBox>
+                <TableView fx:id="vesselsTable" VBox.vgrow="ALWAYS"/>
+            </VBox>
+        </Tab>
+        
+        <Tab text="Customers" closable="false">
+            <VBox spacing="10">
+                <HBox spacing="10">
+                    <Button text="Add Customer" onAction="#handleAddCustomer"/>
+                    <Button text="Edit Customer" onAction="#handleEditCustomer"/>
+                    <Button text="Delete Customer" onAction="#handleDeleteCustomer"/>
+                </HBox>
+                <TableView fx:id="customersTable" VBox.vgrow="ALWAYS"/>
+            </VBox>
+        </Tab>
+        
+        <Tab text="Voyages" closable="false">
+            <VBox spacing="10">
+                <HBox spacing="10">
+                    <Button text="Add Voyage" onAction="#handleAddVoyage"/>
+                    <Button text="Edit Voyage" onAction="#handleEditVoyage"/>
+                    <Button text="Delete Voyage" onAction="#handleDeleteVoyage"/>
+                </HBox>
+                <TableView fx:id="voyagesTable" VBox.vgrow="ALWAYS"/>
+            </VBox>
+        </Tab>
+        
+        <Tab text="Tickets" closable="false">
+            <VBox spacing="10">
+                <HBox spacing="10">
+                    <Button text="Add Ticket" onAction="#handleAddTicket"/>
+                    <Button text="Edit Ticket" onAction="#handleEditTicket"/>
+                    <Button text="Delete Ticket" onAction="#handleDeleteTicket"/>
+                </HBox>
+                <TableView fx:id="ticketsTable" VBox.vgrow="ALWAYS"/>
+            </VBox>
+        </Tab>
+    </TabPane>
+</VBox> 

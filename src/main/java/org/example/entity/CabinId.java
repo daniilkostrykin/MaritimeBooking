@@ -8,8 +8,7 @@ import java.io.Serializable;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class VoyageStageId implements Serializable {
-    private Integer stopNumber;
-    private Long voyageId;
+public class CabinId implements Serializable {
+    private Long id;
     private String vesselId;
 }

@@ -1,0 +1,6 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+в папке C:\Users\Daniil\IdeaProjects\MaritimeBooking\src\main\java\org\example\entity\ находятся сущности для Hibernate, в C:\Users\Daniil\IdeaProjects\MaritimeBooking\src\main\java\org\example\Practice\ находятся файлы, которые связывают эти сущности. Приложение без Hibernate находится в JDBCManager и MaritimeBookingApp. Данные MaritimeBookingApp перенесены в MaritimeBookingAppHibernate для того, чтобы оставить существующий интерфейс и реализовать методы через Hibernate.

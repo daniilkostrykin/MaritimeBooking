@@ -1,9 +1,15 @@
 package org.example.entity;
 
 import jakarta.persistence.*;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
 import java.util.List;
 import java.math.BigDecimal;
 
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
 @Entity
 @Table(name = "ports", schema = "maritime_booking")
 public class Port {
@@ -11,17 +17,17 @@ public class Port {
     @Column(name = "un_locode", length = 5)
     private String unLocode;
 
-    @Column(nullable = false, length = 100)
+    @Column(name = "name", nullable = false, length = 100)
     private String name;
 
-    @Column(nullable = false, length = 50)
+    @Column(name = "city", nullable = false, length = 50)
     private String city;
 
-    @Column(nullable = false, length = 50)
+    @Column(name = "country", nullable = false, length = 50)
     private String country;
 
-    @Column(name = "harbor_depth", nullable = false, precision = 5, scale = 2)
-    private BigDecimal harborDepth;
+    @Column(name = "harbor_depth", nullable = false)
+    private Double harborDepth;
 
     @OneToMany(mappedBy = "departurePort")
     private List<VoyageStage> departureStages;
@@ -63,11 +69,11 @@ public class Port {
     }
 
     public BigDecimal getHarborDepth() {
-        return harborDepth;
+        return BigDecimal.valueOf(harborDepth);
     }
 
     public void setHarborDepth(BigDecimal harborDepth) {
-        this.harborDepth = harborDepth;
+        this.harborDepth = harborDepth.doubleValue();
     }
 
     public List<VoyageStage> getDepartureStages() {

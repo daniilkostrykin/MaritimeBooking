@@ -1,8 +1,14 @@
 package org.example.entity;
 
 import jakarta.persistence.*;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+import lombok.AllArgsConstructor;
 import java.util.List;
 
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
 @Entity
 @Table(name = "vessels", schema = "maritime_booking")
 public class Vessel {
@@ -10,10 +16,10 @@ public class Vessel {
     @Column(name = "imo", length = 10)
     private String imo;
 
-    @Column(nullable = false, length = 100)
+    @Column(name = "name", nullable = false, length = 100)
     private String name;
 
-    @Column(nullable = false, length = 100)
+    @Column(name = "owner", nullable = false, length = 100)
     private String owner;
 
     @Column(name = "year_built", nullable = false)
