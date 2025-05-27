@@ -257,14 +257,27 @@ public class HibernateManager {
     public static void deleteVoyage(Session session, int voyageId, String vesselId) {
         session.beginTransaction();
         try {
-            String hql = "FROM Voyage v WHERE v.id = :id AND v.vesselId = :vesselId";
-            Voyage voyage = session.createQuery(hql, Voyage.class)
-                    .setParameter("id", (long) voyageId)
+            // 1. Удалить билеты
+            String sqlTickets = "DELETE FROM maritime_booking.tickets WHERE voyage_id = :voyageId AND vessel_id = :vesselId";
+            session.createNativeQuery(sqlTickets)
+                    .setParameter("voyageId", voyageId)
                     .setParameter("vesselId", vesselId)
-                    .getSingleResult();
-            if (voyage != null) {
-                session.remove(voyage);
-            }
+                    .executeUpdate();
+
+            // 2. Удалить этапы маршрута
+            String sqlStages = "DELETE FROM maritime_booking.voyage_stages WHERE voyage_id = :voyageId AND vessel_id = :vesselId";
+            session.createNativeQuery(sqlStages)
+                    .setParameter("voyageId", voyageId)
+                    .setParameter("vesselId", vesselId)
+                    .executeUpdate();
+
+            // 3. Удалить сам рейс
+            String sqlVoyage = "DELETE FROM maritime_booking.voyages WHERE id = :voyageId AND vessel_id = :vesselId";
+            session.createNativeQuery(sqlVoyage)
+                    .setParameter("voyageId", voyageId)
+                    .setParameter("vesselId", vesselId)
+                    .executeUpdate();
+
             session.getTransaction().commit();
         } catch (Exception e) {
             session.getTransaction().rollback();
@@ -274,11 +287,12 @@ public class HibernateManager {
 
     // 11. Корректировка цены багажа
     public static List<Object[]> getFutureLuggagePrices(Session session, double minWeight, String date) {
-        String hql = "SELECT t.id, t.luggageWeight, t.price, " +
-                "CASE WHEN t.luggageWeight > :minWeight THEN t.price * 1.1 ELSE t.price END as updatedPrice, " +
-                "t.purchaseDate FROM Ticket t " +
-                "WHERE t.purchaseDate <= :date";
-        return session.createQuery(hql, Object[].class)
+        String sql = "SELECT t.id, t.luggage_weight, t.price, " +
+                "CASE WHEN t.luggage_weight > :minWeight THEN t.price * 1.1 ELSE t.price END as updated_price, " +
+                "t.purchase_date " +
+                "FROM maritime_booking.tickets t " +
+                "WHERE t.luggage_weight > :minWeight AND t.purchase_date <= :date";
+        return session.createNativeQuery(sql, Object[].class)
                 .setParameter("minWeight", minWeight)
                 .setParameter("date", java.time.LocalDate.parse(date))
                 .getResultList();
@@ -287,9 +301,9 @@ public class HibernateManager {
     public static void updateLuggagePrice(Session session, double minWeight, String date) {
         session.beginTransaction();
         try {
-            String hql = "UPDATE Ticket t SET t.price = t.price * 1.1 " +
-                    "WHERE t.luggageWeight > :minWeight AND t.purchaseDate <= :date";
-            session.createMutationQuery(hql)
+            String sql = "UPDATE maritime_booking.tickets SET price = price * 1.1 " +
+                    "WHERE luggage_weight > :minWeight AND purchase_date <= :date";
+            session.createNativeQuery(sql)
                     .setParameter("minWeight", minWeight)
                     .setParameter("date", java.time.LocalDate.parse(date))
                     .executeUpdate();
@@ -310,20 +324,25 @@ public class HibernateManager {
     }
 
     // 12. Маршрут рейса
+
     public static List<Object[]> getVoyagesWithVesselDetails(Session session) {
-        String hql = "SELECT v.id, v.vesselId, v.name, v.status FROM Voyage v";
+        String hql = "SELECT v.id, v.vesselId, v.vessel.name, v.status FROM Voyage v";
         return session.createQuery(hql, Object[].class).getResultList();
     }
 
     public static List<Object[]> getVoyageRoute(Session session, int voyageId) {
-        String sql = "SELECT v.id as voyage_id, v.vessel_id as vessel_id, v.status as voyage_status, " +
-                "vs.stop_number as stop_number, " +
-                "p.name as port_name, p.country as port_country " +
+        String sql = "SELECT v.id AS voyage_id, v.vessel_id, ves.name AS vessel_name, v.status AS voyage_status, " +
+                "vs.stop_number, dp.un_locode AS departure_port_code, dp.name AS departure_port_name, " +
+                "dp.city AS departure_port_city, dp.country AS departure_port_country, vs.departure_datetime, " +
+                "ap.un_locode AS arrival_port_code, ap.name AS arrival_port_name, ap.city AS arrival_port_city, " +
+                "ap.country AS arrival_port_country, vs.arrival_datetime " +
                 "FROM maritime_booking.voyages v " +
+                "JOIN maritime_booking.vessels ves ON v.vessel_id = ves.imo " +
                 "JOIN maritime_booking.voyage_stages vs ON v.id = vs.voyage_id AND v.vessel_id = vs.vessel_id " +
-                "JOIN maritime_booking.ports p ON vs.departure_port_id = p.un_locode " +
+                "JOIN maritime_booking.ports dp ON vs.departure_port_id = dp.un_locode " +
+                "JOIN maritime_booking.ports ap ON vs.arrival_port_id = ap.un_locode " +
                 "WHERE v.id = :voyageId " +
-                "ORDER BY vs.stop_number";
+                "ORDER BY v.id, vs.stop_number";
         return session.createNativeQuery(sql, Object[].class)
                 .setParameter("voyageId", voyageId)
                 .getResultList();

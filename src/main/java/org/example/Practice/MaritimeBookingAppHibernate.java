@@ -25,6 +25,8 @@ import java.util.List;
 import org.example.util.HibernateUtil;
 import org.example.entity.Ticket;
 import org.example.entity.Voyage;
+import java.util.regex.Pattern;
+import java.util.regex.Matcher;
 
 public class MaritimeBookingAppHibernate extends Application {
     private static final String PROTOCOL = "jdbc:postgresql://";
@@ -622,25 +624,39 @@ public class MaritimeBookingAppHibernate extends Application {
             showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить данные: " + e.getMessage());
         }
 
+        TableView<ObservableList<String>> ticketsTable = new TableView<>();
+        ticketsTable.setPrefHeight(150);
+
+        TableView<ObservableList<String>> stagesTable = new TableView<>();
+        stagesTable.setPrefHeight(150);
+
         voyageCombo.setOnAction(e -> {
             if (voyageCombo.getValue() != null) {
-                String vesselId = voyageCombo.getValue().split("IMO: ")[1].replace(")", "");
+                String voyageStr = voyageCombo.getValue();
+                Matcher matcher = Pattern.compile("IMO: ([^)]+)").matcher(voyageStr);
+                if (matcher.find()) {
+                    String imo = matcher.group(1);
+                    vesselCombo.setValue(
+                            vesselCombo.getItems().stream()
+                                    .filter(item -> item.startsWith(imo))
+                                    .findFirst()
+                                    .orElse(null));
+                }
 
-                vesselCombo.setValue(vesselCombo.getItems().stream()
-                        .filter(item -> item.startsWith(vesselId))
-                        .findFirst()
-                        .orElse(null));
+                if (voyageCombo.getValue() != null && vesselCombo.getValue() != null) {
+                    String voyageId = voyageCombo.getValue().split(" ")[0];
+                    String vesselId = vesselCombo.getValue().split(" ")[0];
 
-                if (vesselCombo.getValue() != null) {
-                    String cabinVesselId = vesselCombo.getValue().split(" ")[0];
-                    ObservableList<String> filteredCabins = FXCollections.observableArrayList(
-                            allCabins.stream()
-                                    .filter(item -> item.contains("IMO: " + cabinVesselId))
-                                    .collect(java.util.stream.Collectors.toList()));
-
-                    cabinCombo.setItems(filteredCabins);
-                    if (!filteredCabins.isEmpty()) {
-                        cabinCombo.setValue(filteredCabins.get(0));
+                    try (Session _ = HibernateUtil.getSessionFactory().openSession()) {
+                        showTable("SELECT * FROM maritime_booking.tickets WHERE voyage_id = " + voyageId +
+                                " AND vessel_id = '" + vesselId + "'", ticketsTable);
+                        showTable("SELECT * FROM maritime_booking.voyage_stages WHERE voyage_id = " + voyageId +
+                                " AND vessel_id = '" + vesselId + "'", stagesTable);
+                    } catch (Exception ex) {
+                        errorBox.getChildren().clear();
+                        Label errorLabel = new Label("• Не удалось загрузить связанные данные: " + ex.getMessage());
+                        errorLabel.setStyle("-fx-text-fill: red; -fx-font-size: 12px;");
+                        errorBox.getChildren().add(errorLabel);
                     }
                 }
             }
@@ -894,138 +910,122 @@ public class MaritimeBookingAppHibernate extends Application {
         VBox vbox = new VBox(20);
         vbox.setPadding(new Insets(30));
         vbox.setAlignment(Pos.CENTER);
-
+    
         Label title = new Label("Удалить рейс и всё связанное");
         title.setStyle("-fx-font-size: 20px; -fx-font-weight: bold;");
-
-        Label label = new Label("Выберите рейс для удаления:");
-
+    
         Label voyageLabel = new Label("Выберите рейс:");
         ComboBox<String> voyageCombo = new ComboBox<>();
         voyageCombo.setPromptText("ID рейса");
-
-        Label vesselLabel = new Label("Выберите судно:");
-        ComboBox<String> vesselCombo = new ComboBox<>();
-        vesselCombo.setPromptText("IMO судна");
-
+    
+        Label imoLabel = new Label("IMO судна:");
+        Label imoValue = new Label(); // Заменяем ComboBox на Label
+        imoValue.setStyle("-fx-font-size: 14px;");
+    
         VBox errorBox = new VBox(5);
         errorBox.setAlignment(Pos.CENTER_LEFT);
         errorBox.setPadding(new Insets(5, 0, 5, 0));
-
+    
         Label voyagesLabel = new Label("Таблица рейсов:");
         TableView<ObservableList<String>> voyagesTable = new TableView<>();
         voyagesTable.setPrefHeight(150);
-
+    
         Label ticketsLabel = new Label("Таблица билетов выбранного рейса:");
         TableView<ObservableList<String>> ticketsTable = new TableView<>();
         ticketsTable.setPrefHeight(150);
-
+    
         Label stagesLabel = new Label("Таблица этапов выбранного рейса:");
         TableView<ObservableList<String>> stagesTable = new TableView<>();
         stagesTable.setPrefHeight(150);
-
+    
+        // Заполняем ComboBox рейсов
         try (Session session = HibernateUtil.getSessionFactory().openSession()) {
             List<Voyage> voyages = HibernateManager.getVoyagesWithVessels(session);
             for (Voyage voyage : voyages) {
-                voyageCombo.getItems()
-                        .add(voyage.getId() + " - " + voyage.getVessel().getName() + " (IMO: " + voyage.getVesselId()
-                                + ")");
+                voyageCombo.getItems().add(voyage.getId() + " - " + voyage.getVessel().getName() + " (IMO: " + voyage.getVesselId() + ")");
             }
         } catch (Exception e) {
             Label errorLabel = new Label("• Не удалось загрузить данные: " + e.getMessage());
             errorLabel.setStyle("-fx-text-fill: red; -fx-font-size: 12px;");
             errorBox.getChildren().add(errorLabel);
         }
-
+    
+        // Показываем IMO и связанные данные при выборе рейса
         voyageCombo.setOnAction(e -> {
-            if (voyageCombo.getValue() != null) {
-                String vesselIdFromVoyage = voyageCombo.getValue().split("IMO: ")[1].split(" -")[0];
-                vesselCombo.setValue(vesselCombo.getItems().stream()
-                        .filter(item -> item.startsWith(vesselIdFromVoyage))
-                        .findFirst()
-                        .orElse(null));
-
-                if (voyageCombo.getValue() != null && vesselCombo.getValue() != null) {
-                    String voyageId = voyageCombo.getValue().split(" ")[0];
-                    String vesselId = vesselCombo.getValue().split(" ")[0];
-
-                    try (Session _ = HibernateUtil.getSessionFactory().openSession()) {
-                        showTable("SELECT * FROM maritime_booking.tickets WHERE voyage_id = " + voyageId +
-                                " AND vessel_id = '" + vesselId + "'", ticketsTable);
-                        showTable("SELECT * FROM maritime_booking.voyage_stages WHERE voyage_id = " + voyageId +
-                                " AND vessel_id = '" + vesselId + "'", stagesTable);
-                    } catch (Exception ex) {
-                        errorBox.getChildren().clear();
-                        Label errorLabel = new Label("• Не удалось загрузить связанные данные: " + ex.getMessage());
-                        errorLabel.setStyle("-fx-text-fill: red; -fx-font-size: 12px;");
-                        errorBox.getChildren().add(errorLabel);
-                    }
+            errorBox.getChildren().clear();
+            String voyageStr = voyageCombo.getValue();
+            if (voyageStr != null) {
+                // Извлекаем IMO из выбранного рейса
+                String imo = voyageStr.substring(voyageStr.indexOf("IMO: ") + 5, voyageStr.indexOf(")"));
+                imoValue.setText(imo);
+    
+                String voyageId = voyageStr.split(" ")[0];
+                try (Session session = HibernateUtil.getSessionFactory().openSession()) {
+                    showTable("SELECT * FROM maritime_booking.tickets WHERE voyage_id = " + voyageId +
+                            " AND vessel_id = '" + imo + "'", ticketsTable);
+                    showTable("SELECT * FROM maritime_booking.voyage_stages WHERE voyage_id = " + voyageId +
+                            " AND vessel_id = '" + imo + "'", stagesTable);
+                } catch (Exception ex) {
+                    Label errorLabel = new Label("• Не удалось загрузить связанные данные: " + ex.getMessage());
+                    errorLabel.setStyle("-fx-text-fill: red; -fx-font-size: 12px;");
+                    errorBox.getChildren().add(errorLabel);
                 }
+            } else {
+                imoValue.setText("");
+                ticketsTable.getItems().clear();
+                stagesTable.getItems().clear();
             }
         });
-
+    
         Button deleteBtn = new Button("Удалить всё связанное");
-        deleteBtn.setStyle(
-                "-fx-font-weight: bold; -fx-background-color: #E53935; -fx-text-fill: white; -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
-
+        deleteBtn.setStyle("-fx-font-weight: bold; -fx-background-color: #E53935; -fx-text-fill: white; -fx-padding: 8 20 8 20; -fx-background-radius: 8;");
+    
         showTable("SELECT * FROM maritime_booking.voyages", voyagesTable);
-
+    
         deleteBtn.setOnAction(e -> {
             errorBox.getChildren().clear();
             voyageCombo.setStyle("");
-            vesselCombo.setStyle("");
-
-            if (voyageCombo.getValue() == null || vesselCombo.getValue() == null) {
-                Label errorLabel = new Label("• Выберите рейс и судно!");
+    
+            String voyageStr = voyageCombo.getValue();
+            if (voyageStr == null) {
+                Label errorLabel = new Label("• Выберите рейс!");
                 errorLabel.setStyle("-fx-text-fill: red; -fx-font-size: 12px;");
                 errorBox.getChildren().add(errorLabel);
-
-                if (voyageCombo.getValue() == null) {
-                    voyageCombo.setStyle("-fx-border-color: red;");
-                }
-                if (vesselCombo.getValue() == null) {
-                    vesselCombo.setStyle("-fx-border-color: red;");
-                }
+                voyageCombo.setStyle("-fx-border-color: red;");
                 return;
             }
-
-            String voyageId = voyageCombo.getValue().split(" ")[0];
-            String vesselId = vesselCombo.getValue().split(" ")[0];
-
+    
+            String voyageId = voyageStr.split(" ")[0];
+            String vesselId = imoValue.getText();
+    
             Alert confirmAlert = new Alert(Alert.AlertType.CONFIRMATION);
             confirmAlert.setTitle("Подтверждение");
             confirmAlert.setHeaderText("Удаление рейса");
             confirmAlert.setContentText("Вы уверены, что хотите удалить рейс " + voyageId +
                     " и все связанные данные? Это действие нельзя отменить.");
-
+    
             Optional<ButtonType> result = confirmAlert.showAndWait();
             if (result.isPresent() && result.get() == ButtonType.OK) {
                 try (Session session = HibernateUtil.getSessionFactory().openSession()) {
                     HibernateManager.deleteVoyage(session, Integer.parseInt(voyageId), vesselId);
-
+    
                     Label successLabel = new Label("• Рейс " + voyageId + " и всё связанное удалено!");
                     successLabel.setStyle("-fx-text-fill: green; -fx-font-size: 12px;");
                     errorBox.getChildren().add(successLabel);
-
+    
                     voyageCombo.setValue(null);
-                    vesselCombo.setValue(null);
-
+                    imoValue.setText("");
+    
                     voyageCombo.getItems().clear();
                     List<Voyage> voyages = HibernateManager.getVoyagesWithVessels(session);
                     for (Voyage voyage : voyages) {
-                        voyageCombo.getItems()
-                                .add(voyage.getId() + " - " + voyage.getVessel().getName() + " (IMO: "
-                                        + voyage.getVesselId()
-                                        + ")");
+                        voyageCombo.getItems().add(voyage.getId() + " - " + voyage.getVessel().getName() + " (IMO: " + voyage.getVesselId() + ")");
                     }
-
+    
                     showTable("SELECT * FROM maritime_booking.voyages", voyagesTable);
-
-                    showTable("SELECT * FROM maritime_booking.tickets WHERE voyage_id = " + voyageId +
-                            " AND vessel_id = '" + vesselId + "'", ticketsTable);
-                    showTable("SELECT * FROM maritime_booking.voyage_stages WHERE voyage_id = " + voyageId +
-                            " AND vessel_id = '" + vesselId + "'", stagesTable);
-
+                    ticketsTable.getItems().clear();
+                    stagesTable.getItems().clear();
+    
                     ticketsLabel.setText("Таблица билетов выбранного рейса (после удаления)");
                     stagesLabel.setText("Таблица этапов выбранного рейса (после удаления)");
                 } catch (Exception ex) {
@@ -1035,23 +1035,21 @@ public class MaritimeBookingAppHibernate extends Application {
                 }
             }
         });
-
-        VBox form = new VBox(10, label, voyageLabel, voyageCombo, vesselLabel, vesselCombo, errorBox, deleteBtn);
+    
+        VBox form = new VBox(10, voyageLabel, voyageCombo, imoLabel, imoValue, errorBox, deleteBtn);
         form.setAlignment(Pos.CENTER);
         form.setMaxWidth(350);
-
-        VBox tablesVBox = new VBox(10, voyagesLabel, voyagesTable, ticketsLabel, ticketsTable, stagesLabel,
-                stagesTable);
+    
+        VBox tablesVBox = new VBox(10, voyagesLabel, voyagesTable, ticketsLabel, ticketsTable, stagesLabel, stagesTable);
         ScrollPane scrollPane = new ScrollPane(tablesVBox);
         scrollPane.setFitToWidth(true);
         scrollPane.setPrefHeight(450);
-
+    
         vbox.getChildren().clear();
         vbox.getChildren().addAll(title, form, scrollPane);
         vbox.setAlignment(Pos.CENTER);
         return vbox;
     }
-
     private javafx.scene.Node createLuggagePriceUpdateTab() {
         VBox vbox = new VBox(20);
         vbox.setPadding(new Insets(30));
@@ -1155,6 +1153,7 @@ public class MaritimeBookingAppHibernate extends Application {
                     errorBox.getChildren().add(infoLabel);
                 }
             } catch (Exception ex) {
+                ex.printStackTrace();
                 Label errorLabel = new Label("• Не удалось загрузить данные: " + ex.getMessage());
                 errorLabel.setStyle("-fx-text-fill: red; -fx-font-size: 12px;");
                 errorBox.getChildren().add(errorLabel);
@@ -1222,6 +1221,7 @@ public class MaritimeBookingAppHibernate extends Application {
                     errorBox.getChildren().add(infoLabel);
                 }
             } catch (Exception ex) {
+                ex.printStackTrace();
                 Label errorLabel = new Label("• Ошибка обновления: " + ex.getMessage());
                 errorLabel.setStyle("-fx-text-fill: red; -fx-font-size: 12px;");
                 errorBox.getChildren().add(errorLabel);
@@ -1246,78 +1246,104 @@ public class MaritimeBookingAppHibernate extends Application {
         Label title = new Label("Маршрут рейса");
         title.setStyle("-fx-font-size: 20px; -fx-font-weight: bold;");
 
-        Label voyageLabel = new Label("Выберите рейс:");
+        Label label = new Label("Выберите рейс:");
         ComboBox<String> voyageCombo = new ComboBox<>();
         voyageCombo.setPromptText("Рейс");
 
-        Label errorLabel = new Label("");
-        errorLabel.setStyle("-fx-text-fill: red; -fx-font-size: 12px;");
-
         try (Session session = HibernateUtil.getSessionFactory().openSession()) {
-            List<Voyage> voyages = HibernateManager.getVoyagesWithVessels(session);
-            for (Voyage voyage : voyages) {
-                voyageCombo.getItems()
-                        .add(voyage.getId() + " - " + voyage.getVessel().getName() + " (IMO: " + voyage.getVesselId()
-                                + ")");
+            List<Object[]> voyages = HibernateManager.getVoyagesWithVesselDetails(session);
+            for (Object[] voyage : voyages) {
+                voyageCombo.getItems().add(String.format("%s (Судно: %s - %s, Статус: %s)",
+                        voyage[0], voyage[1], voyage[2], voyage[3]));
             }
         } catch (Exception e) {
-            errorLabel.setText("Не удалось загрузить список рейсов: " + e.getMessage());
+            showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить список рейсов: " + e.getMessage());
         }
-
-        Button showRouteBtn = new Button("Показать маршрут");
 
         TableView<ObservableList<String>> table = new TableView<>();
         table.setPrefHeight(400);
+        String[] columnNames = {
+                "ID рейса", "ID судна", "Название судна", "Статус рейса", "№ остановки",
+                "Код порта отправления", "Порт отправления", "Город отправления", "Страна отправления",
+                "Дата отправления",
+                "Код порта прибытия", "Порт прибытия", "Город прибытия", "Страна прибытия", "Дата прибытия"
+        };
+        for (String colName : columnNames) {
+            TableColumn<ObservableList<String>, String> col = new TableColumn<>(colName);
+            final int idx = java.util.Arrays.asList(columnNames).indexOf(colName);
+            col.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().get(idx)));
+            col.setPrefWidth(120);
+            table.getColumns().add(col);
+        }
 
-        TableColumn<ObservableList<String>, String> cityCol = new TableColumn<>("Город");
-        cityCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().get(0)));
-        cityCol.setPrefWidth(150);
+        Label routeLabel = new Label("Маршрут по городам:");
+        TableView<ObservableList<String>> routeTable = new TableView<>();
+        routeTable.setPrefHeight(200);
+        TableColumn<ObservableList<String>, String> stopCol = new TableColumn<>("№ остановки");
+        stopCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().get(0)));
+        stopCol.setPrefWidth(100);
+        TableColumn<ObservableList<String>, String> depCityCol = new TableColumn<>("Город отправления");
+        depCityCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().get(1)));
+        depCityCol.setPrefWidth(180);
+        TableColumn<ObservableList<String>, String> arrCityCol = new TableColumn<>("Город прибытия");
+        arrCityCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().get(2)));
+        arrCityCol.setPrefWidth(180);
+        routeTable.getColumns().add(stopCol);
+        routeTable.getColumns().add(depCityCol);
+        routeTable.getColumns().add(arrCityCol);
 
-        TableColumn<ObservableList<String>, String> countryCol = new TableColumn<>("Страна");
-        countryCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().get(1)));
-        countryCol.setPrefWidth(150);
-
-        TableColumn<ObservableList<String>, String> orderCol = new TableColumn<>("Порядок");
-        orderCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().get(2)));
-        orderCol.setPrefWidth(100);
-
-        table.getColumns().add(cityCol);
-        table.getColumns().add(countryCol);
-        table.getColumns().add(orderCol);
-
-        showRouteBtn.setOnAction(e -> {
-            String selectedVoyage = voyageCombo.getValue();
-            if (selectedVoyage == null) {
-                errorLabel.setText("Выберите рейс!");
+        voyageCombo.setOnAction(e -> {
+            if (voyageCombo.getValue() == null) {
                 return;
             }
-        
-            String voyageId = selectedVoyage.split(" - ")[0];
-            table.getItems().clear();
-        
+
+            String voyageId = voyageCombo.getValue().split(" ")[0];
+            ObservableList<ObservableList<String>> data = FXCollections.observableArrayList();
             try (Session session = HibernateUtil.getSessionFactory().openSession()) {
-                List<Object[]> route = HibernateManager.getVoyageRoute(session, Integer.parseInt(voyageId));
-                ObservableList<ObservableList<String>> data = FXCollections.observableArrayList();
-                for (Object[] city : route) {
-                    ObservableList<String> row = FXCollections.observableArrayList();
-                    row.add(city[4] != null ? city[4].toString() : ""); // Город (port_name)
-                    row.add(city[5] != null ? city[5].toString() : ""); // Страна (port_country)
-                    row.add(city[3] != null ? city[3].toString() : ""); // Порядок (stop_number)
-                    data.add(row);
+                List<Object[]> routeData = HibernateManager.getVoyageRoute(session, Integer.parseInt(voyageId));
+                for (Object[] row : routeData) {
+                    ObservableList<String> tableRow = FXCollections.observableArrayList();
+                    for (Object value : row) {
+                        tableRow.add(value != null ? value.toString() : "");
+                    }
+                    data.add(tableRow);
                 }
                 table.setItems(data);
-                errorLabel.setText("");
             } catch (Exception ex) {
-                errorLabel.setText("Ошибка загрузки маршрута: " + ex.getMessage());
+                showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить данные: " + ex.getMessage());
+            }
+
+            ObservableList<ObservableList<String>> routeCitiesData = FXCollections.observableArrayList();
+            try (Session session = HibernateUtil.getSessionFactory().openSession()) {
+                // Здесь можно добавить HQL-запрос, но для соответствия текущему функционалу
+                // оставим нативный SQL
+                String sql = "SELECT vs.stop_number, dp.city AS departure_city, ap.city AS arrival_city " +
+                        "FROM maritime_booking.voyage_stages vs " +
+                        "JOIN maritime_booking.ports dp ON vs.departure_port_id = dp.un_locode " +
+                        "JOIN maritime_booking.ports ap ON vs.arrival_port_id = ap.un_locode " +
+                        "WHERE vs.voyage_id = :voyageId " +
+                        "ORDER BY vs.stop_number";
+                List<Object[]> citiesData = session.createNativeQuery(sql, Object[].class)
+                        .setParameter("voyageId", Integer.parseInt(voyageId))
+                        .getResultList();
+                for (Object[] row : citiesData) {
+                    ObservableList<String> cityRow = FXCollections.observableArrayList();
+                    for (Object value : row) {
+                        cityRow.add(value != null ? value.toString() : "");
+                    }
+                    routeCitiesData.add(cityRow);
+                }
+                routeTable.setItems(routeCitiesData);
+            } catch (Exception ex) {
+                showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить маршрут: " + ex.getMessage());
             }
         });
-        
-        VBox form = new VBox(10, voyageLabel, voyageCombo, errorLabel, showRouteBtn);
+
+        VBox form = new VBox(10, label, voyageCombo);
         form.setAlignment(Pos.CENTER);
         form.setMaxWidth(350);
-
         vbox.getChildren().clear();
-        vbox.getChildren().addAll(title, form, table);
+        vbox.getChildren().addAll(title, form, table, routeLabel, routeTable);
         vbox.setAlignment(Pos.CENTER);
         return vbox;
     }
@@ -1346,8 +1372,6 @@ public class MaritimeBookingAppHibernate extends Application {
             errorLabel.setText("Не удалось загрузить список лет: " + e.getMessage());
         }
 
-        Button showSalesBtn = new Button("Показать продажи");
-
         TableView<ObservableList<String>> table = new TableView<>();
         table.setPrefHeight(400);
 
@@ -1367,7 +1391,7 @@ public class MaritimeBookingAppHibernate extends Application {
         table.getColumns().add(countCol);
         table.getColumns().add(revenueCol);
 
-        showSalesBtn.setOnAction(e -> {
+        yearCombo.setOnAction(e -> {
             String year = yearCombo.getValue();
             if (year == null) {
                 errorLabel.setText("Выберите год!");
@@ -1393,7 +1417,7 @@ public class MaritimeBookingAppHibernate extends Application {
             }
         });
 
-        VBox form = new VBox(10, yearLabel, yearCombo, errorLabel, showSalesBtn);
+        VBox form = new VBox(10, yearLabel, yearCombo, errorLabel);
         form.setAlignment(Pos.CENTER);
         form.setMaxWidth(350);
 
