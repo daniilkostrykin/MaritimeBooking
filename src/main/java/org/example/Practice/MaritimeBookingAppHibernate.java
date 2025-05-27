@@ -10,9 +10,7 @@ import javafx.scene.control.Button;
 import javafx.scene.control.CheckBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextField;
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.SQLException;
+
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.scene.control.TableColumn;
@@ -25,6 +23,8 @@ import java.util.Optional;
 import org.hibernate.Session;
 import java.util.List;
 import org.example.util.HibernateUtil;
+import org.example.entity.Ticket;
+import org.example.entity.Voyage;
 
 public class MaritimeBookingAppHibernate extends Application {
     private static final String PROTOCOL = "jdbc:postgresql://";
@@ -51,14 +51,6 @@ public class MaritimeBookingAppHibernate extends Application {
         Tab universalTab = new Tab("Таблицы");
         universalTab.setClosable(false);
         universalTab.setContent(createUniversalTableTab());
-
-        Tab buyTicketTab = new Tab("Покупка билета");
-        buyTicketTab.setClosable(false);
-        buyTicketTab.setContent(createBuyTicketTab());
-
-        Tab addClientTab = new Tab("Добавление клиента");
-        addClientTab.setClosable(false);
-        addClientTab.setContent(createAddClientTab());
 
         Tab ticketsForYearWithPriceTab = new Tab("Билеты за год с ценой меньше");
         ticketsForYearWithPriceTab.setClosable(false);
@@ -100,22 +92,14 @@ public class MaritimeBookingAppHibernate extends Application {
         ticketSalesTab.setClosable(false);
         ticketSalesTab.setContent(createTicketSalesTab());
 
-        Tab avgCheckTab = new Tab("Средний чек по клиентам");
-        avgCheckTab.setClosable(false);
-        avgCheckTab.setContent(createAvgCheckTab());
-
-        Tab totalRevenueTab = new Tab("Выручка по маршрутам");
-        totalRevenueTab.setClosable(false);
-        totalRevenueTab.setContent(createTotalRevenueTab());
-
         Tab customQueryTab = new Tab("Произвольный SQL-запрос");
         customQueryTab.setClosable(false);
         customQueryTab.setContent(createCustomQueryTab());
 
-        tabPane.getTabs().addAll(universalTab, buyTicketTab, addClientTab, ticketsForYearWithPriceTab,
+        tabPane.getTabs().addAll(universalTab, ticketsForYearWithPriceTab,
                 ticketsByClientTab, clientsByMealTab, completedVoyagesTab, insuredTicketsFromCountryTab,
                 addClientAndTicketTab, deleteVoyageTab, luggagePriceUpdateTab, voyageRouteTab, ticketSalesTab,
-                avgCheckTab, totalRevenueTab, customQueryTab);
+                customQueryTab);
 
         ComboBox<String> themeCombo = new ComboBox<>();
         themeCombo.getItems().addAll("Тёмная", "Светлая");
@@ -149,245 +133,6 @@ public class MaritimeBookingAppHibernate extends Application {
         primaryStage.show();
     }
 
-    private VBox createBuyTicketTab() {
-        VBox vbox = new VBox(20);
-        vbox.setPadding(new Insets(30));
-        vbox.setAlignment(Pos.CENTER);
-
-        Label title = new Label("Покупка билета");
-        title.setStyle("-fx-font-size: 20px; -fx-font-weight: bold;");
-
-        TextField emailField = new TextField();
-        emailField.setPromptText("Email клиента");
-
-        Label voyageLabel = new Label("Выберите рейс:");
-        ComboBox<String> voyageCombo = new ComboBox<>();
-        voyageCombo.setPromptText("ID рейса");
-
-        Label vesselLabel = new Label("Судно:");
-        ComboBox<String> vesselCombo = new ComboBox<>();
-        vesselCombo.setPromptText("IMO судна");
-        vesselCombo.setDisable(true);
-
-        Label cabinLabel = new Label("Выберите каюту:");
-        ComboBox<String> cabinCombo = new ComboBox<>();
-        cabinCombo.setPromptText("ID каюты");
-
-        TextField priceField = new TextField();
-        priceField.setPromptText("Цена");
-
-        ComboBox<String> paymentMethodCombo = new ComboBox<>();
-        paymentMethodCombo.getItems().addAll("card", "cash");
-        paymentMethodCombo.setPromptText("Способ оплаты");
-
-        ComboBox<String> mealTypeCombo = new ComboBox<>();
-        mealTypeCombo.getItems().addAll("no_meals", "breakfast", "half_board", "full_board", "all_inclusive",
-                "ultra_all_inclusive");
-        mealTypeCombo.setPromptText("Тип питания");
-
-        CheckBox insuranceCheck = new CheckBox("Страховка");
-        TextField luggageField = new TextField();
-        luggageField.setPromptText("Вес багажа (кг)");
-        TextField purchaseDateField = new TextField();
-        purchaseDateField.setPromptText("Дата покупки (ГГГГ-ММ-ДД)");
-
-        VBox errorBox = new VBox(5);
-        errorBox.setAlignment(Pos.CENTER_LEFT);
-        errorBox.setPadding(new Insets(5, 0, 5, 0));
-
-        ObservableList<String> allCabins = FXCollections.observableArrayList();
-
-        try (Session session = HibernateUtil.getSessionFactory().openSession()) {
-            List<Object[]> voyages = HibernateManager.getActiveVoyages(session);
-            for (Object[] voyage : voyages) {
-                voyageCombo.getItems().add(voyage[0] + " (IMO: " + voyage[1] + ")");
-            }
-
-            List<Object[]> vessels = HibernateManager.getVessels(session);
-            for (Object[] vessel : vessels) {
-                vesselCombo.getItems().add(vessel[0] + " (" + vessel[1] + ")");
-            }
-
-            List<Object[]> cabins = HibernateManager.getCabins(session);
-            for (Object[] cabin : cabins) {
-                String cabinItem = cabin[0] + " (IMO: " + cabin[1] +
-                        ", категория: " + cabin[2] +
-                        ", вместимость: " + cabin[3] +
-                        ", окно: " + (Boolean) cabin[4] + ")";
-                allCabins.add(cabinItem);
-            }
-
-            cabinCombo.setItems(FXCollections.observableArrayList(allCabins));
-        } catch (Exception e) {
-            showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить данные: " + e.getMessage());
-        }
-
-        voyageCombo.setOnAction(e -> {
-            if (voyageCombo.getValue() != null) {
-                String vesselId = voyageCombo.getValue().split("IMO: ")[1].replace(")", "");
-
-                vesselCombo.setValue(vesselCombo.getItems().stream()
-                        .filter(item -> item.startsWith(vesselId))
-                        .findFirst()
-                        .orElse(null));
-
-                if (vesselCombo.getValue() != null) {
-                    String cabinVesselId = vesselCombo.getValue().split(" ")[0];
-                    ObservableList<String> filteredCabins = FXCollections.observableArrayList(
-                            allCabins.stream()
-                                    .filter(item -> item.contains("IMO: " + cabinVesselId))
-                                    .collect(java.util.stream.Collectors.toList()));
-
-                    cabinCombo.setItems(filteredCabins);
-                    if (!filteredCabins.isEmpty()) {
-                        cabinCombo.setValue(filteredCabins.get(0));
-                    }
-                }
-            }
-        });
-
-        purchaseDateField.setText(java.time.LocalDate.now().toString());
-
-        Button buyTicketBtn = new Button("Купить билет");
-
-        buyTicketBtn.setOnAction(e -> {
-            errorBox.getChildren().clear();
-            emailField.setStyle("");
-            voyageCombo.setStyle("");
-            vesselCombo.setStyle("");
-            cabinCombo.setStyle("");
-            priceField.setStyle("");
-            paymentMethodCombo.setStyle("");
-            mealTypeCombo.setStyle("");
-            luggageField.setStyle("");
-            purchaseDateField.setStyle("");
-
-            java.util.List<String> errors = new java.util.ArrayList<>();
-
-            if (!Validator.isNotEmpty(emailField.getText())) {
-                errors.add("• Необходимо указать Email клиента");
-                emailField.setStyle("-fx-border-color: red;");
-            } else if (!Validator.isValidEmail(emailField.getText())) {
-                errors.add("• Неверный формат Email");
-                emailField.setStyle("-fx-border-color: red;");
-            }
-
-            if (Validator.isValidEmail(emailField.getText())) {
-                try (Session session = HibernateUtil.getSessionFactory().openSession()) {
-                    if (!HibernateManager.checkCustomerExists(session, emailField.getText())) {
-                        errors.add("• Клиент с таким Email не найден в базе");
-                        emailField.setStyle("-fx-border-color: red;");
-                    }
-                } catch (Exception ex) {
-                    errors.add("• Ошибка проверки клиента: " + ex.getMessage());
-                }
-            }
-
-            if (voyageCombo.getValue() == null) {
-                errors.add("• Необходимо выбрать рейс");
-                voyageCombo.setStyle("-fx-border-color: red;");
-            }
-
-            if (vesselCombo.getValue() == null) {
-                errors.add("• Необходимо выбрать судно");
-                vesselCombo.setStyle("-fx-border-color: red;");
-            }
-
-            if (cabinCombo.getValue() == null) {
-                errors.add("• Необходимо выбрать каюту");
-                cabinCombo.setStyle("-fx-border-color: red;");
-            }
-
-            if (!Validator.isNumeric(priceField.getText())) {
-                errors.add("• Цена должна быть числом");
-                priceField.setStyle("-fx-border-color: red;");
-            }
-
-            if (paymentMethodCombo.getValue() == null) {
-                errors.add("• Необходимо выбрать способ оплаты");
-                paymentMethodCombo.setStyle("-fx-border-color: red;");
-            }
-
-            if (mealTypeCombo.getValue() == null) {
-                errors.add("• Необходимо выбрать тип питания");
-                mealTypeCombo.setStyle("-fx-border-color: red;");
-            }
-
-            if (!Validator.isNumeric(luggageField.getText())) {
-                errors.add("• Вес багажа должен быть числом");
-                luggageField.setStyle("-fx-border-color: red;");
-            }
-
-            if (!Validator.isValidDate(purchaseDateField.getText())) {
-                errors.add("• Дата должна быть в формате ГГГГ-ММ-ДД");
-                purchaseDateField.setStyle("-fx-border-color: red;");
-            } else if (!Validator.isNotFutureDate(purchaseDateField.getText())) {
-                errors.add("• Дата покупки не может быть в будущем");
-                purchaseDateField.setStyle("-fx-border-color: red;");
-            }
-
-            if (!errors.isEmpty()) {
-                for (String error : errors) {
-                    Label errorLabel = new Label(error);
-                    errorLabel.setStyle("-fx-text-fill: red; -fx-font-size: 12px;");
-                    errorBox.getChildren().add(errorLabel);
-                }
-                return;
-            }
-
-            try (Session session = HibernateUtil.getSessionFactory().openSession()) {
-                String voyageId = voyageCombo.getValue().split(" ")[0];
-                String vesselId = vesselCombo.getValue().split(" ")[0];
-                String cabinId = cabinCombo.getValue().split(" ")[0];
-
-                HibernateManager.buyTicket(session,
-                        emailField.getText(),
-                        Integer.parseInt(voyageId),
-                        vesselId,
-                        Integer.parseInt(cabinId),
-                        Double.parseDouble(priceField.getText()),
-                        paymentMethodCombo.getValue(),
-                        mealTypeCombo.getValue(),
-                        insuranceCheck.isSelected(),
-                        Integer.parseInt(luggageField.getText()),
-                        purchaseDateField.getText());
-                showAlert(Alert.AlertType.INFORMATION, "Успех", "Билет успешно куплен!");
-
-                emailField.clear();
-                priceField.clear();
-                paymentMethodCombo.setValue(null);
-                mealTypeCombo.setValue(null);
-                insuranceCheck.setSelected(false);
-                luggageField.clear();
-                purchaseDateField.setText(java.time.LocalDate.now().toString());
-
-            } catch (Exception ex1) {
-                Label errorLabel = new Label("• " + ex1.getMessage());
-                errorLabel.setStyle("-fx-text-fill: red; -fx-font-size: 12px;");
-                errorBox.getChildren().add(errorLabel);
-            }
-        });
-
-        VBox form = new VBox(10,
-                emailField,
-                voyageLabel, voyageCombo,
-                vesselLabel, vesselCombo,
-                cabinLabel, cabinCombo,
-                priceField,
-                paymentMethodCombo,
-                mealTypeCombo,
-                insuranceCheck,
-                luggageField,
-                purchaseDateField,
-                errorBox,
-                buyTicketBtn);
-        form.setAlignment(Pos.CENTER);
-        form.setMaxWidth(350);
-        vbox.getChildren().addAll(title, form);
-        vbox.setAlignment(Pos.CENTER);
-        return vbox;
-    }
-
     private VBox createTicketsForYearWithPriceTab() {
         VBox vbox = new VBox(20);
         vbox.setPadding(new Insets(30));
@@ -403,12 +148,12 @@ public class MaritimeBookingAppHibernate extends Application {
         Label errorLabel = new Label("");
         errorLabel.setStyle("-fx-text-fill: red; -fx-font-size: 12px;");
 
-        try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
-            var rs = JDBCManager.getAvailableYears(connection);
-            while (rs.next()) {
-                yearCombo.getItems().add(rs.getString("year"));
+        try (Session session = HibernateUtil.getSessionFactory().openSession()) {
+            List<Object[]> years = HibernateManager.getAvailableYears(session);
+            for (Object[] year : years) {
+                yearCombo.getItems().add(year[0].toString());
             }
-        } catch (SQLException e) {
+        } catch (Exception e) {
             errorLabel.setText("Не удалось загрузить список лет: " + e.getMessage());
         }
 
@@ -439,23 +184,35 @@ public class MaritimeBookingAppHibernate extends Application {
                 return;
             }
 
+            double price;
+            try {
+                price = Double.parseDouble(maxPrice);
+                if (price < 0) {
+                    errorLabel.setText("Максимальная цена не может быть отрицательной!");
+                    return;
+                }
+            } catch (NumberFormatException ex) {
+                errorLabel.setText("Введите корректное число для максимальной цены!");
+                return;
+            }
+
             ObservableList<ObservableList<String>> data = FXCollections.observableArrayList();
-            try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
-                var rs = JDBCManager.getTicketsForYearWithPrice(connection, Integer.parseInt(year),
-                        Double.parseDouble(maxPrice));
-                while (rs.next()) {
+            try (Session session = HibernateUtil.getSessionFactory().openSession()) {
+                List<Object[]> tickets = HibernateManager.getTicketsForYearWithPrice(session,
+                        Integer.parseInt(year), price);
+                for (Object[] ticket : tickets) {
                     ObservableList<String> row = FXCollections.observableArrayList();
-                    row.add(rs.getString("id"));
-                    row.add(rs.getString("price"));
+                    row.add(ticket[0].toString());
+                    row.add(ticket[1].toString());
                     data.add(row);
                 }
                 table.setItems(data);
                 if (data.isEmpty()) {
-                    errorLabel.setText("Билетов с ценой меньше " + maxPrice + " за " + year + " год не найдено");
+                    errorLabel.setText("Билетов с ценой меньше " + price + " за " + year + " год не найдено");
                 } else {
                     errorLabel.setText("");
                 }
-            } catch (SQLException ex) {
+            } catch (Exception ex) {
                 errorLabel.setText("Не удалось загрузить данные: " + ex.getMessage());
             }
         });
@@ -466,151 +223,6 @@ public class MaritimeBookingAppHibernate extends Application {
 
         vbox.getChildren().clear();
         vbox.getChildren().addAll(title, form, table);
-        vbox.setAlignment(Pos.CENTER);
-        return vbox;
-    }
-
-    private VBox createAddClientTab() {
-        VBox vbox = new VBox(20);
-        vbox.setPadding(new Insets(30));
-        vbox.setAlignment(Pos.CENTER);
-
-        Label title = new Label("Добавление клиента");
-        title.setStyle("-fx-font-size: 20px; -fx-font-weight: bold;");
-
-        TextField emailField = new TextField();
-        emailField.setPromptText("Email");
-        TextField lastNameField = new TextField();
-        lastNameField.setPromptText("Фамилия");
-        TextField firstNameField = new TextField();
-        firstNameField.setPromptText("Имя");
-        TextField middleNameField = new TextField();
-        middleNameField.setPromptText("Отчество");
-        TextField birthDateField = new TextField();
-        birthDateField.setPromptText("Дата рождения (ГГГГ-ММ-ДД)");
-        TextField passportField = new TextField();
-        passportField.setPromptText("Серия паспорта (10 цифр)");
-
-        VBox errorBox = new VBox(5);
-        errorBox.setAlignment(Pos.CENTER_LEFT);
-        errorBox.setPadding(new Insets(5, 0, 5, 0));
-
-        birthDateField.setText(java.time.LocalDate.now().toString());
-
-        Button addClientBtn = new Button("Добавить клиента");
-
-        addClientBtn.setOnAction(e -> {
-            errorBox.getChildren().clear();
-            emailField.setStyle("");
-            lastNameField.setStyle("");
-            firstNameField.setStyle("");
-            middleNameField.setStyle("");
-            birthDateField.setStyle("");
-            passportField.setStyle("");
-
-            java.util.List<String> errors = new java.util.ArrayList<>();
-
-            if (!Validator.isNotEmpty(emailField.getText())) {
-                errors.add("• Необходимо указать Email");
-                emailField.setStyle("-fx-border-color: red;");
-            } else if (!Validator.isValidEmail(emailField.getText())) {
-                errors.add("• Неверный формат Email");
-                emailField.setStyle("-fx-border-color: red;");
-            }
-
-            if (Validator.isValidEmail(emailField.getText())) {
-                try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
-                    if (JDBCManager.checkCustomerExists(connection, emailField.getText())) {
-                        errors.add("• Клиент с таким Email уже существует");
-                        emailField.setStyle("-fx-border-color: red;");
-                    }
-                } catch (SQLException ex) {
-                    errors.add("• Ошибка проверки клиента: " + ex.getMessage());
-                }
-            }
-
-            if (!Validator.isNotEmpty(lastNameField.getText())) {
-                errors.add("• Необходимо указать фамилию");
-                lastNameField.setStyle("-fx-border-color: red;");
-            } else if (!Validator.isAlphabetic(lastNameField.getText())) {
-                errors.add("• Фамилия должна содержать только буквы");
-                lastNameField.setStyle("-fx-border-color: red;");
-            }
-
-            if (!Validator.isNotEmpty(firstNameField.getText())) {
-                errors.add("• Необходимо указать имя");
-                firstNameField.setStyle("-fx-border-color: red;");
-            } else if (!Validator.isAlphabetic(firstNameField.getText())) {
-                errors.add("• Имя должно содержать только буквы");
-                firstNameField.setStyle("-fx-border-color: red;");
-            }
-
-            if (Validator.isNotEmpty(middleNameField.getText()) &&
-                    !Validator.isAlphabetic(middleNameField.getText())) {
-                errors.add("• Отчество должно содержать только буквы");
-                middleNameField.setStyle("-fx-border-color: red;");
-            } else {
-                middleNameField.setStyle("");
-            }
-
-            if (!Validator.isValidDate(birthDateField.getText())) {
-                errors.add("• Дата должна быть в формате ГГГГ-ММ-ДД");
-                birthDateField.setStyle("-fx-border-color: red;");
-            } else if (!Validator.isNotFutureDate(birthDateField.getText())) {
-                errors.add("• Дата рождения не может быть в будущем");
-                birthDateField.setStyle("-fx-border-color: red;");
-            }
-
-            if (!passportField.getText().matches("^\\d{10}$")) {
-                errors.add("• Серия паспорта должна содержать ровно 10 цифр");
-                passportField.setStyle("-fx-border-color: red;");
-            }
-
-            if (!errors.isEmpty()) {
-                for (String error : errors) {
-                    Label errorLabel = new Label(error);
-                    errorLabel.setStyle("-fx-text-fill: red; -fx-font-size: 12px;");
-                    errorBox.getChildren().add(errorLabel);
-                }
-                return;
-            }
-
-            try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
-                JDBCManager.addClient(connection,
-                        lastNameField.getText(),
-                        firstNameField.getText(),
-                        middleNameField.getText(),
-                        Long.parseLong(passportField.getText()),
-                        birthDateField.getText(),
-                        emailField.getText());
-
-                showAlert(Alert.AlertType.INFORMATION, "Успех", "Клиент успешно добавлен!");
-
-                emailField.clear();
-                lastNameField.clear();
-                firstNameField.clear();
-                middleNameField.clear();
-                birthDateField.setText(java.time.LocalDate.now().toString());
-                passportField.clear();
-            } catch (SQLException ex1) {
-                Label errorLabel = new Label("• " + ex1.getMessage());
-                errorLabel.setStyle("-fx-text-fill: red; -fx-font-size: 12px;");
-                errorBox.getChildren().add(errorLabel);
-            }
-        });
-
-        VBox form = new VBox(10,
-                emailField,
-                lastNameField,
-                firstNameField,
-                middleNameField,
-                birthDateField,
-                passportField,
-                errorBox,
-                addClientBtn);
-        form.setAlignment(Pos.CENTER);
-        form.setMaxWidth(350);
-        vbox.getChildren().addAll(title, form);
         vbox.setAlignment(Pos.CENTER);
         return vbox;
     }
@@ -630,13 +242,12 @@ public class MaritimeBookingAppHibernate extends Application {
         Label errorLabel = new Label("");
         errorLabel.setStyle("-fx-text-fill: red; -fx-font-size: 12px;");
 
-        try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
-            var rs = JDBCManager.getCustomersWithTickets(connection);
-            while (rs.next()) {
-                emailCombo.getItems().add(rs.getString("email") +
-                        " (" + rs.getString("last_name") + " " + rs.getString("first_name") + ")");
+        try (Session session = HibernateUtil.getSessionFactory().openSession()) {
+            List<Object[]> customers = HibernateManager.getCustomersWithTickets(session);
+            for (Object[] customer : customers) {
+                emailCombo.getItems().add(customer[0] + " (" + customer[1] + " " + customer[2] + ")");
             }
-        } catch (SQLException e) {
+        } catch (Exception e) {
             errorLabel.setText("Не удалось загрузить список клиентов: " + e.getMessage());
         }
 
@@ -659,14 +270,14 @@ public class MaritimeBookingAppHibernate extends Application {
 
             String email = emailCombo.getValue().split(" \\(")[0];
             ObservableList<ObservableList<String>> data = FXCollections.observableArrayList();
-            try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
-                var rs = JDBCManager.getCustomerTickets(connection, email);
-                while (rs.next()) {
-                    data.add(FXCollections.observableArrayList(rs.getString("id"), rs.getString("price")));
+            try (Session session = HibernateUtil.getSessionFactory().openSession()) {
+                List<Object[]> tickets = HibernateManager.getCustomerTickets(session, email);
+                for (Object[] ticket : tickets) {
+                    data.add(FXCollections.observableArrayList(ticket[0].toString(), ticket[1].toString()));
                 }
                 table.setItems(data);
                 errorLabel.setText("");
-            } catch (SQLException ex) {
+            } catch (Exception ex) {
                 errorLabel.setText("Не удалось загрузить данные: " + ex.getMessage());
             }
         });
@@ -716,17 +327,18 @@ public class MaritimeBookingAppHibernate extends Application {
                 return;
             }
             ObservableList<ObservableList<String>> data = FXCollections.observableArrayList();
-            try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
-                var rs = JDBCManager.getCustomersByMealType(connection, mealType);
-                while (rs.next()) {
+            try (Session session = HibernateUtil.getSessionFactory().openSession()) {
+                List<Object[]> customers = HibernateManager.getCustomersByMealType(session,
+                        Ticket.MealType.valueOf(mealType));
+                for (Object[] customer : customers) {
                     ObservableList<String> row = FXCollections.observableArrayList();
-                    row.add(rs.getString("email"));
-                    row.add(rs.getString("first_name"));
+                    row.add(customer[0].toString());
+                    row.add(customer[1].toString());
                     data.add(row);
                 }
                 table.setItems(data);
                 errorLabel.setText("");
-            } catch (SQLException ex) {
+            } catch (Exception ex) {
                 errorLabel.setText("Не удалось загрузить данные: " + ex.getMessage());
             }
         });
@@ -756,12 +368,13 @@ public class MaritimeBookingAppHibernate extends Application {
         ComboBox<String> tablesCombo = new ComboBox<>();
         TableView<ObservableList<String>> tableView = new TableView<>();
 
-        try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
-            var rs = JDBCManager.getTablesMetadata(connection);
-            while (rs.next()) {
-                tablesCombo.getItems().add(rs.getString("TABLE_NAME"));
+        try (Session session = HibernateUtil.getSessionFactory().openSession()) {
+            String sql = "SELECT table_name FROM information_schema.tables WHERE table_schema = 'maritime_booking'";
+            List<?> tables = HibernateManager.executeCustomQuery(session, sql);
+            for (Object table : tables) {
+                tablesCombo.getItems().add(table.toString());
             }
-        } catch (SQLException e) {
+        } catch (Exception e) {
             showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось получить список таблиц: " + e.getMessage());
         }
 
@@ -773,28 +386,31 @@ public class MaritimeBookingAppHibernate extends Application {
             tableView.getColumns().clear();
             tableView.getItems().clear();
 
-            try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
-                var rs = JDBCManager.executeQuery(connection,
-                        "SELECT * FROM maritime_booking." + tableName + " LIMIT 100");
-                var rsmd = rs.getMetaData();
-                int columnCount = rsmd.getColumnCount();
+            try (Session session = HibernateUtil.getSessionFactory().openSession()) {
+                String sql = "SELECT * FROM maritime_booking." + tableName + " LIMIT 100";
+                List<Object[]> results = HibernateManager.executeCustomQuery(session, sql);
 
-                for (int i = 1; i <= columnCount; i++) {
-                    final int colIndex = i - 1;
-                    TableColumn<ObservableList<String>, String> col = new TableColumn<>(rsmd.getColumnName(i));
-                    col.setCellValueFactory(
-                            data -> new javafx.beans.property.SimpleStringProperty(data.getValue().get(colIndex)));
-                    tableView.getColumns().add(col);
-                }
-
-                while (rs.next()) {
-                    ObservableList<String> row = FXCollections.observableArrayList();
-                    for (int i = 1; i <= columnCount; i++) {
-                        row.add(rs.getString(i));
+                if (!results.isEmpty()) {
+                    Object[] firstRow = results.get(0);
+                    for (int i = 0; i < firstRow.length; i++) {
+                        final int colIndex = i;
+                        TableColumn<ObservableList<String>, String> col = new TableColumn<>("Column " + (i + 1));
+                        col.setCellValueFactory(
+                                data -> new javafx.beans.property.SimpleStringProperty(data.getValue().get(colIndex)));
+                        tableView.getColumns().add(col);
                     }
-                    tableView.getItems().add(row);
+
+                    ObservableList<ObservableList<String>> data = FXCollections.observableArrayList();
+                    for (Object[] row : results) {
+                        ObservableList<String> rowData = FXCollections.observableArrayList();
+                        for (Object value : row) {
+                            rowData.add(value != null ? value.toString() : "");
+                        }
+                        data.add(rowData);
+                    }
+                    tableView.setItems(data);
                 }
-            } catch (SQLException e) {
+            } catch (Exception e) {
                 showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить данные: " + e.getMessage());
             }
         });
@@ -833,16 +449,20 @@ public class MaritimeBookingAppHibernate extends Application {
         table.getColumns().add(idCol);
         table.getColumns().add(statusCol);
 
-        try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
-            var rs = JDBCManager.getAvailableVoyageStatuses(connection);
-            while (rs.next()) {
-                statusCombo.getItems().add(rs.getString("status"));
+        try (Session session = HibernateUtil.getSessionFactory().openSession()) {
+            List<Object[]> statuses = HibernateManager.getAvailableVoyageStatuses(session);
+            for (Object status : statuses) {
+                if (status instanceof Object[] arr) {
+                    statusCombo.getItems().add(arr[0].toString());
+                } else {
+                    statusCombo.getItems().add(status.toString());
+                }
             }
-
             if (statusCombo.getItems().isEmpty()) {
                 errorLabel.setText("В базе данных нет рейсов");
             }
-        } catch (SQLException e) {
+        } catch (Exception e) {
+            e.printStackTrace();
             errorLabel.setText("Не удалось загрузить список статусов: " + e.getMessage());
         }
 
@@ -853,12 +473,13 @@ public class MaritimeBookingAppHibernate extends Application {
                 return;
             }
             ObservableList<ObservableList<String>> data = FXCollections.observableArrayList();
-            try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
-                var rs = JDBCManager.getVoyagesByStatusAndMeal(connection, status, meal);
-                while (rs.next()) {
+            try (Session session = HibernateUtil.getSessionFactory().openSession()) {
+                List<Object[]> voyages = HibernateManager.getVoyagesByStatusAndMeal(session, status,
+                        meal);
+                for (Object[] voyage : voyages) {
                     ObservableList<String> row = FXCollections.observableArrayList();
-                    row.add(rs.getString("id"));
-                    row.add(rs.getString("status"));
+                    row.add(voyage[0].toString());
+                    row.add(voyage[1].toString());
                     data.add(row);
                 }
                 table.setItems(data);
@@ -868,7 +489,8 @@ public class MaritimeBookingAppHibernate extends Application {
                     errorLabel.setText("Нет данных для выбранного статуса и типа питания");
                 }
 
-            } catch (SQLException ex) {
+            } catch (Exception ex) {
+                ex.printStackTrace();
                 errorLabel.setText("Не удалось загрузить данные: " + ex.getMessage());
             }
         };
@@ -883,25 +505,27 @@ public class MaritimeBookingAppHibernate extends Application {
             table.getItems().clear();
             errorLabel.setText("");
 
-            try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
-                boolean hasVoyages = JDBCManager.hasVoyagesWithStatus(connection, status);
+            try (Session session = HibernateUtil.getSessionFactory().openSession()) {
+                boolean hasVoyages = HibernateManager.hasVoyagesWithStatus(session, status);
 
                 if (!hasVoyages) {
                     errorLabel.setText("Нет рейсов с таким статусом");
                     return;
                 }
 
-                var rs = JDBCManager.getAvailableMealTypesByStatus(connection, status);
+                List<Object[]> mealTypes = HibernateManager.getAvailableMealTypesByStatus(session, status);
                 boolean hasMealTypes = false;
-
-                while (rs.next()) {
-                    hasMealTypes = true;
-                    mealCombo.getItems().add(rs.getString("meal_type"));
+                for (Object mealType : mealTypes) {
+                    if (mealType instanceof Object[] arr) {
+                        hasMealTypes = true;
+                        mealCombo.getItems().add(arr[0].toString());
+                    } else {
+                        hasMealTypes = true;
+                        mealCombo.getItems().add(mealType.toString());
+                    }
                 }
-
                 if (hasMealTypes) {
                     mealCombo.setPromptText("Выберите тип питания");
-
                     if (mealCombo.getItems().size() == 1) {
                         mealCombo.setValue(mealCombo.getItems().get(0));
                     }
@@ -909,7 +533,8 @@ public class MaritimeBookingAppHibernate extends Application {
                     mealCombo.setPromptText("Нет доступных типов питания");
                     errorLabel.setText("Для рейсов с таким статусом нет билетов с питанием");
                 }
-            } catch (SQLException ex) {
+            } catch (Exception ex) {
+                ex.printStackTrace();
                 errorLabel.setText("Не удалось загрузить типы питания: " + ex.getMessage());
             }
         });
@@ -1299,18 +924,14 @@ public class MaritimeBookingAppHibernate extends Application {
         TableView<ObservableList<String>> stagesTable = new TableView<>();
         stagesTable.setPrefHeight(150);
 
-        try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
-            var rs = JDBCManager.getVoyagesWithVessels(connection);
-            while (rs.next()) {
-                voyageCombo.getItems().add(rs.getString("id") + " (IMO: " + rs.getString("vessel_id") +
-                        " - " + rs.getString("name") + ")");
+        try (Session session = HibernateUtil.getSessionFactory().openSession()) {
+            List<Voyage> voyages = HibernateManager.getVoyagesWithVessels(session);
+            for (Voyage voyage : voyages) {
+                voyageCombo.getItems()
+                        .add(voyage.getId() + " - " + voyage.getVessel().getName() + " (IMO: " + voyage.getVesselId()
+                                + ")");
             }
-
-            rs = JDBCManager.getVessels(connection);
-            while (rs.next()) {
-                vesselCombo.getItems().add(rs.getString("imo") + " (" + rs.getString("name") + ")");
-            }
-        } catch (SQLException e) {
+        } catch (Exception e) {
             Label errorLabel = new Label("• Не удалось загрузить данные: " + e.getMessage());
             errorLabel.setStyle("-fx-text-fill: red; -fx-font-size: 12px;");
             errorBox.getChildren().add(errorLabel);
@@ -1328,12 +949,12 @@ public class MaritimeBookingAppHibernate extends Application {
                     String voyageId = voyageCombo.getValue().split(" ")[0];
                     String vesselId = vesselCombo.getValue().split(" ")[0];
 
-                    try (Connection _ = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
+                    try (Session _ = HibernateUtil.getSessionFactory().openSession()) {
                         showTable("SELECT * FROM maritime_booking.tickets WHERE voyage_id = " + voyageId +
                                 " AND vessel_id = '" + vesselId + "'", ticketsTable);
                         showTable("SELECT * FROM maritime_booking.voyage_stages WHERE voyage_id = " + voyageId +
                                 " AND vessel_id = '" + vesselId + "'", stagesTable);
-                    } catch (SQLException ex) {
+                    } catch (Exception ex) {
                         errorBox.getChildren().clear();
                         Label errorLabel = new Label("• Не удалось загрузить связанные данные: " + ex.getMessage());
                         errorLabel.setStyle("-fx-text-fill: red; -fx-font-size: 12px;");
@@ -1379,8 +1000,8 @@ public class MaritimeBookingAppHibernate extends Application {
 
             Optional<ButtonType> result = confirmAlert.showAndWait();
             if (result.isPresent() && result.get() == ButtonType.OK) {
-                try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
-                    JDBCManager.deleteVoyage(connection, Integer.parseInt(voyageId), vesselId);
+                try (Session session = HibernateUtil.getSessionFactory().openSession()) {
+                    HibernateManager.deleteVoyage(session, Integer.parseInt(voyageId), vesselId);
 
                     Label successLabel = new Label("• Рейс " + voyageId + " и всё связанное удалено!");
                     successLabel.setStyle("-fx-text-fill: green; -fx-font-size: 12px;");
@@ -1390,10 +1011,12 @@ public class MaritimeBookingAppHibernate extends Application {
                     vesselCombo.setValue(null);
 
                     voyageCombo.getItems().clear();
-                    var rs = JDBCManager.getVoyagesWithVessels(connection);
-                    while (rs.next()) {
-                        voyageCombo.getItems().add(rs.getString("id") + " (IMO: " + rs.getString("vessel_id") +
-                                " - " + rs.getString("name") + ")");
+                    List<Voyage> voyages = HibernateManager.getVoyagesWithVessels(session);
+                    for (Voyage voyage : voyages) {
+                        voyageCombo.getItems()
+                                .add(voyage.getId() + " - " + voyage.getVessel().getName() + " (IMO: "
+                                        + voyage.getVesselId()
+                                        + ")");
                     }
 
                     showTable("SELECT * FROM maritime_booking.voyages", voyagesTable);
@@ -1405,7 +1028,7 @@ public class MaritimeBookingAppHibernate extends Application {
 
                     ticketsLabel.setText("Таблица билетов выбранного рейса (после удаления)");
                     stagesLabel.setText("Таблица этапов выбранного рейса (после удаления)");
-                } catch (SQLException ex) {
+                } catch (Exception ex) {
                     Label errorLabel = new Label("• Ошибка при удалении: " + ex.getMessage());
                     errorLabel.setStyle("-fx-text-fill: red; -fx-font-size: 12px;");
                     errorBox.getChildren().add(errorLabel);
@@ -1510,17 +1133,18 @@ public class MaritimeBookingAppHibernate extends Application {
 
             table.getItems().clear();
             futureCol.setText("Будущая обновленная цена");
-            try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
-                var rs = JDBCManager.getFutureLuggagePrices(connection, Double.parseDouble(minWeight), date);
+            try (Session session = HibernateUtil.getSessionFactory().openSession()) {
+                List<Object[]> tickets = HibernateManager.getFutureLuggagePrices(session,
+                        Double.parseDouble(minWeight), date);
                 ObservableList<ObservableList<String>> data = FXCollections.observableArrayList();
                 int rowCount = 0;
-                while (rs.next()) {
+                for (Object[] ticket : tickets) {
                     ObservableList<String> row = FXCollections.observableArrayList();
-                    row.add(rs.getString("id"));
-                    row.add(rs.getString("luggage_weight"));
-                    row.add(rs.getString("price"));
-                    row.add(rs.getString("updated_price"));
-                    row.add(rs.getString("purchase_date"));
+                    row.add(ticket[0].toString());
+                    row.add(ticket[1].toString());
+                    row.add(ticket[2].toString());
+                    row.add(ticket[3].toString());
+                    row.add(ticket[4].toString());
                     data.add(row);
                     rowCount++;
                 }
@@ -1530,7 +1154,7 @@ public class MaritimeBookingAppHibernate extends Application {
                     infoLabel.setStyle("-fx-text-fill: blue; -fx-font-size: 12px;");
                     errorBox.getChildren().add(infoLabel);
                 }
-            } catch (SQLException ex) {
+            } catch (Exception ex) {
                 Label errorLabel = new Label("• Не удалось загрузить данные: " + ex.getMessage());
                 errorLabel.setStyle("-fx-text-fill: red; -fx-font-size: 12px;");
                 errorBox.getChildren().add(errorLabel);
@@ -1569,23 +1193,24 @@ public class MaritimeBookingAppHibernate extends Application {
 
             table.getItems().clear();
             futureCol.setText("Обновленная цена");
-            try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
-                JDBCManager.updateLuggagePrice(connection, Double.parseDouble(minWeight), date);
+            try (Session session = HibernateUtil.getSessionFactory().openSession()) {
+                HibernateManager.updateLuggagePrice(session, Double.parseDouble(minWeight), date);
 
                 Label successLabel = new Label("• Цены успешно обновлены!");
                 successLabel.setStyle("-fx-text-fill: green; -fx-font-size: 12px;");
                 errorBox.getChildren().add(successLabel);
 
-                var rs = JDBCManager.getUpdatedLuggageTickets(connection, Double.parseDouble(minWeight), date);
+                List<Object[]> tickets = HibernateManager.getUpdatedLuggageTickets(session,
+                        Double.parseDouble(minWeight), date);
                 ObservableList<ObservableList<String>> data = FXCollections.observableArrayList();
                 int rowCount = 0;
-                while (rs.next()) {
+                for (Object[] ticket : tickets) {
                     ObservableList<String> row = FXCollections.observableArrayList();
-                    row.add(rs.getString("id"));
-                    row.add(rs.getString("luggage_weight"));
-                    row.add(rs.getString("price"));
-                    row.add(rs.getString("price"));
-                    row.add(rs.getString("purchase_date"));
+                    row.add(ticket[0].toString());
+                    row.add(ticket[1].toString());
+                    row.add(ticket[2].toString());
+                    row.add(ticket[2].toString());
+                    row.add(ticket[3].toString());
                     data.add(row);
                     rowCount++;
                 }
@@ -1596,7 +1221,7 @@ public class MaritimeBookingAppHibernate extends Application {
                     infoLabel.setStyle("-fx-text-fill: blue; -fx-font-size: 12px;");
                     errorBox.getChildren().add(infoLabel);
                 }
-            } catch (SQLException ex) {
+            } catch (Exception ex) {
                 Label errorLabel = new Label("• Ошибка обновления: " + ex.getMessage());
                 errorLabel.setStyle("-fx-text-fill: red; -fx-font-size: 12px;");
                 errorBox.getChildren().add(errorLabel);
@@ -1621,109 +1246,78 @@ public class MaritimeBookingAppHibernate extends Application {
         Label title = new Label("Маршрут рейса");
         title.setStyle("-fx-font-size: 20px; -fx-font-weight: bold;");
 
-        Label label = new Label("Выберите рейс:");
+        Label voyageLabel = new Label("Выберите рейс:");
         ComboBox<String> voyageCombo = new ComboBox<>();
         voyageCombo.setPromptText("Рейс");
 
-        try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
-            var rs = JDBCManager.getVoyagesWithVesselDetails(connection);
-            while (rs.next()) {
-                voyageCombo.getItems().add(String.format("%s (Судно: %s - %s, Статус: %s)",
-                        rs.getString("id"),
-                        rs.getString("vessel_id"),
-                        rs.getString("vessel_name"),
-                        rs.getString("status")));
+        Label errorLabel = new Label("");
+        errorLabel.setStyle("-fx-text-fill: red; -fx-font-size: 12px;");
+
+        try (Session session = HibernateUtil.getSessionFactory().openSession()) {
+            List<Voyage> voyages = HibernateManager.getVoyagesWithVessels(session);
+            for (Voyage voyage : voyages) {
+                voyageCombo.getItems()
+                        .add(voyage.getId() + " - " + voyage.getVessel().getName() + " (IMO: " + voyage.getVesselId()
+                                + ")");
             }
-        } catch (SQLException e) {
-            showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить список рейсов: " + e.getMessage());
+        } catch (Exception e) {
+            errorLabel.setText("Не удалось загрузить список рейсов: " + e.getMessage());
         }
+
+        Button showRouteBtn = new Button("Показать маршрут");
 
         TableView<ObservableList<String>> table = new TableView<>();
         table.setPrefHeight(400);
-        String[] columnNames = {
-                "ID рейса", "ID судна", "Название судна", "Статус рейса", "№ остановки",
-                "Код порта отправления", "Порт отправления", "Город отправления", "Страна отправления",
-                "Дата отправления",
-                "Код порта прибытия", "Порт прибытия", "Город прибытия", "Страна прибытия", "Дата прибытия"
-        };
-        for (String colName : columnNames) {
-            TableColumn<ObservableList<String>, String> col = new TableColumn<>(colName);
-            final int idx = java.util.Arrays.asList(columnNames).indexOf(colName);
-            col.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().get(idx)));
-            col.setPrefWidth(120);
-            table.getColumns().add(col);
-        }
 
-        Label routeLabel = new Label("Маршрут по городам:");
-        TableView<ObservableList<String>> routeTable = new TableView<>();
-        routeTable.setPrefHeight(200);
-        TableColumn<ObservableList<String>, String> stopCol = new TableColumn<>("№ остановки");
-        stopCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().get(0)));
-        stopCol.setPrefWidth(100);
-        TableColumn<ObservableList<String>, String> depCityCol = new TableColumn<>("Город отправления");
-        depCityCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().get(1)));
-        depCityCol.setPrefWidth(180);
-        TableColumn<ObservableList<String>, String> arrCityCol = new TableColumn<>("Город прибытия");
-        arrCityCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().get(2)));
-        arrCityCol.setPrefWidth(180);
-        routeTable.getColumns().add(stopCol);
-        routeTable.getColumns().add(depCityCol);
-        routeTable.getColumns().add(arrCityCol);
+        TableColumn<ObservableList<String>, String> cityCol = new TableColumn<>("Город");
+        cityCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().get(0)));
+        cityCol.setPrefWidth(150);
 
-        voyageCombo.setOnAction(e -> {
-            if (voyageCombo.getValue() == null) {
+        TableColumn<ObservableList<String>, String> countryCol = new TableColumn<>("Страна");
+        countryCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().get(1)));
+        countryCol.setPrefWidth(150);
+
+        TableColumn<ObservableList<String>, String> orderCol = new TableColumn<>("Порядок");
+        orderCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().get(2)));
+        orderCol.setPrefWidth(100);
+
+        table.getColumns().add(cityCol);
+        table.getColumns().add(countryCol);
+        table.getColumns().add(orderCol);
+
+        showRouteBtn.setOnAction(e -> {
+            String selectedVoyage = voyageCombo.getValue();
+            if (selectedVoyage == null) {
+                errorLabel.setText("Выберите рейс!");
                 return;
             }
-
-            String voyageId = voyageCombo.getValue().split(" ")[0];
-            ObservableList<ObservableList<String>> data = FXCollections.observableArrayList();
-            try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
-                var rs = JDBCManager.getVoyageRoute(connection, Integer.parseInt(voyageId));
-                while (rs.next()) {
+        
+            String voyageId = selectedVoyage.split(" - ")[0];
+            table.getItems().clear();
+        
+            try (Session session = HibernateUtil.getSessionFactory().openSession()) {
+                List<Object[]> route = HibernateManager.getVoyageRoute(session, Integer.parseInt(voyageId));
+                ObservableList<ObservableList<String>> data = FXCollections.observableArrayList();
+                for (Object[] city : route) {
                     ObservableList<String> row = FXCollections.observableArrayList();
-                    row.add(rs.getString("voyage_id"));
-                    row.add(rs.getString("vessel_id"));
-                    row.add(rs.getString("vessel_name"));
-                    row.add(rs.getString("voyage_status"));
-                    row.add(rs.getString("stop_number"));
-                    row.add(rs.getString("departure_port_code"));
-                    row.add(rs.getString("departure_port_name"));
-                    row.add(rs.getString("departure_port_city"));
-                    row.add(rs.getString("departure_port_country"));
-                    row.add(rs.getString("departure_datetime"));
-                    row.add(rs.getString("arrival_port_code"));
-                    row.add(rs.getString("arrival_port_name"));
-                    row.add(rs.getString("arrival_port_city"));
-                    row.add(rs.getString("arrival_port_country"));
-                    row.add(rs.getString("arrival_datetime"));
+                    row.add(city[4] != null ? city[4].toString() : ""); // Город (port_name)
+                    row.add(city[5] != null ? city[5].toString() : ""); // Страна (port_country)
+                    row.add(city[3] != null ? city[3].toString() : ""); // Порядок (stop_number)
                     data.add(row);
                 }
                 table.setItems(data);
-            } catch (SQLException ex) {
-                showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить данные: " + ex.getMessage());
-            }
-
-            ObservableList<ObservableList<String>> routeData = FXCollections.observableArrayList();
-            try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
-                var rs = JDBCManager.getVoyageCities(connection, Integer.parseInt(voyageId));
-                while (rs.next()) {
-                    ObservableList<String> row = FXCollections.observableArrayList();
-                    row.add(rs.getString("stop_number"));
-                    row.add(rs.getString("departure_city"));
-                    row.add(rs.getString("arrival_city"));
-                    routeData.add(row);
-                }
-                routeTable.setItems(routeData);
-            } catch (SQLException ex) {
-                showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить маршрут: " + ex.getMessage());
+                errorLabel.setText("");
+            } catch (Exception ex) {
+                errorLabel.setText("Ошибка загрузки маршрута: " + ex.getMessage());
             }
         });
-
-        VBox form = new VBox(10, label, voyageCombo);
+        
+        VBox form = new VBox(10, voyageLabel, voyageCombo, errorLabel, showRouteBtn);
         form.setAlignment(Pos.CENTER);
         form.setMaxWidth(350);
+
         vbox.getChildren().clear();
-        vbox.getChildren().addAll(title, form, table, routeLabel, routeTable);
+        vbox.getChildren().addAll(title, form, table);
         vbox.setAlignment(Pos.CENTER);
         return vbox;
     }
@@ -1740,210 +1334,73 @@ public class MaritimeBookingAppHibernate extends Application {
         ComboBox<String> yearCombo = new ComboBox<>();
         yearCombo.setPromptText("Год");
 
-        try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
-            var rs = JDBCManager.getAvailableYears(connection);
-            while (rs.next()) {
-                yearCombo.getItems().add(rs.getString("year"));
+        Label errorLabel = new Label("");
+        errorLabel.setStyle("-fx-text-fill: red; -fx-font-size: 12px;");
+
+        try (Session session = HibernateUtil.getSessionFactory().openSession()) {
+            List<Object[]> years = HibernateManager.getAvailableYears(session);
+            for (Object[] year : years) {
+                yearCombo.getItems().add(year[0].toString());
             }
-        } catch (SQLException e) {
-            showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить список лет: " + e.getMessage());
+        } catch (Exception e) {
+            errorLabel.setText("Не удалось загрузить список лет: " + e.getMessage());
         }
+
+        Button showSalesBtn = new Button("Показать продажи");
 
         TableView<ObservableList<String>> table = new TableView<>();
         table.setPrefHeight(400);
+
         TableColumn<ObservableList<String>, String> monthCol = new TableColumn<>("Месяц");
         monthCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().get(0)));
-        monthCol.setPrefWidth(80);
-        TableColumn<ObservableList<String>, String> depCol = new TableColumn<>("Страна отправления");
-        depCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().get(1)));
-        depCol.setPrefWidth(120);
-        TableColumn<ObservableList<String>, String> arrCol = new TableColumn<>("Страна прибытия");
-        arrCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().get(2)));
-        arrCol.setPrefWidth(120);
-        TableColumn<ObservableList<String>, String> cntCol = new TableColumn<>("Кол-во билетов");
-        cntCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().get(3)));
-        cntCol.setPrefWidth(100);
-        TableColumn<ObservableList<String>, String> revCol = new TableColumn<>("Выручка");
-        revCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().get(4)));
-        revCol.setPrefWidth(100);
-        TableColumn<ObservableList<String>, String> avgCol = new TableColumn<>("Средний чек");
-        avgCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().get(5)));
-        avgCol.setPrefWidth(100);
-        TableColumn<ObservableList<String>, String> insCol = new TableColumn<>("% страховки");
-        insCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().get(6)));
-        insCol.setPrefWidth(100);
-        table.getColumns().add(monthCol);
-        table.getColumns().add(depCol);
-        table.getColumns().add(arrCol);
-        table.getColumns().add(cntCol);
-        table.getColumns().add(revCol);
-        table.getColumns().add(avgCol);
-        table.getColumns().add(insCol);
+        monthCol.setPrefWidth(100);
 
-        yearCombo.setOnAction(e -> {
+        TableColumn<ObservableList<String>, String> countCol = new TableColumn<>("Количество билетов");
+        countCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().get(1)));
+        countCol.setPrefWidth(150);
+
+        TableColumn<ObservableList<String>, String> revenueCol = new TableColumn<>("Выручка");
+        revenueCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().get(2)));
+        revenueCol.setPrefWidth(150);
+
+        table.getColumns().add(monthCol);
+        table.getColumns().add(countCol);
+        table.getColumns().add(revenueCol);
+
+        showSalesBtn.setOnAction(e -> {
             String year = yearCombo.getValue();
             if (year == null) {
+                errorLabel.setText("Выберите год!");
                 return;
             }
-            ObservableList<ObservableList<String>> data = FXCollections.observableArrayList();
-            try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
-                var rs = JDBCManager.getTicketSales(connection, year);
-                while (rs.next()) {
+
+            table.getItems().clear();
+
+            try (Session session = HibernateUtil.getSessionFactory().openSession()) {
+                List<Object[]> sales = HibernateManager.getTicketSales(session, year);
+                ObservableList<ObservableList<String>> data = FXCollections.observableArrayList();
+                for (Object[] sale : sales) {
                     ObservableList<String> row = FXCollections.observableArrayList();
-                    for (int i = 1; i <= 7; i++) {
-                        row.add(rs.getString(i));
-                    }
+                    row.add(sale[0].toString());
+                    row.add(sale[1].toString());
+                    row.add(sale[2].toString());
                     data.add(row);
                 }
                 table.setItems(data);
-            } catch (SQLException ex) {
-                showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить данные: " + ex.getMessage());
+                errorLabel.setText("");
+            } catch (Exception ex) {
+                errorLabel.setText("Ошибка загрузки данных: " + ex.getMessage());
             }
         });
 
-        VBox form = new VBox(10, yearLabel, yearCombo);
+        VBox form = new VBox(10, yearLabel, yearCombo, errorLabel, showSalesBtn);
         form.setAlignment(Pos.CENTER);
         form.setMaxWidth(350);
+
         vbox.getChildren().clear();
         vbox.getChildren().addAll(title, form, table);
         vbox.setAlignment(Pos.CENTER);
         return vbox;
-    }
-
-    private VBox createAvgCheckTab() {
-        VBox vbox = new VBox(20);
-        vbox.setPadding(new Insets(30));
-        vbox.setAlignment(Pos.CENTER);
-
-        Label title = new Label("Средний чек по клиентам");
-        title.setStyle("-fx-font-size: 20px; -fx-font-weight: bold;");
-
-        Label label = new Label("Средний чек и количество билетов по клиентам:");
-        Button searchBtn = new Button("Показать средний чек");
-        TableView<ObservableList<String>> table = new TableView<>();
-        table.setPrefHeight(400);
-        TableColumn<ObservableList<String>, String> emailCol = new TableColumn<>("Email");
-        emailCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().get(0)));
-        emailCol.setPrefWidth(200);
-        TableColumn<ObservableList<String>, String> cntCol = new TableColumn<>("Кол-во билетов");
-        cntCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().get(1)));
-        cntCol.setPrefWidth(120);
-        TableColumn<ObservableList<String>, String> avgCol = new TableColumn<>("Средний чек");
-        avgCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().get(2)));
-        avgCol.setPrefWidth(120);
-        table.getColumns().add(emailCol);
-        table.getColumns().add(cntCol);
-        table.getColumns().add(avgCol);
-        searchBtn.setOnAction(e -> {
-            ObservableList<ObservableList<String>> data = FXCollections.observableArrayList();
-            try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
-                var rs = JDBCManager.getAverageCheck(connection);
-                while (rs.next()) {
-                    ObservableList<String> row = FXCollections.observableArrayList();
-                    row.add(rs.getString("email"));
-                    row.add(rs.getString("tickets_cnt"));
-                    row.add(rs.getString("avg_price"));
-                    data.add(row);
-                }
-                table.setItems(data);
-            } catch (SQLException ex) {
-                showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить данные: " + ex.getMessage());
-            }
-        });
-        VBox form = new VBox(10, label, searchBtn);
-        form.setAlignment(Pos.CENTER);
-        form.setMaxWidth(350);
-        vbox.getChildren().clear();
-        vbox.getChildren().addAll(title, form, table);
-        vbox.setAlignment(Pos.CENTER);
-        return vbox;
-    }
-
-    private VBox createTotalRevenueTab() {
-        VBox vbox = new VBox(20);
-        vbox.setPadding(new Insets(30));
-        vbox.setAlignment(Pos.CENTER);
-
-        Label title = new Label("Выручка по маршрутам");
-        title.setStyle("-fx-font-size: 20px; -fx-font-weight: bold;");
-
-        Label label = new Label("Общая выручка по маршрутам:");
-        Button searchBtn = new Button("Показать выручку");
-        TableView<ObservableList<String>> table = new TableView<>();
-        table.setPrefHeight(400);
-        TableColumn<ObservableList<String>, String> depCol = new TableColumn<>("Порт отправления");
-        depCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().get(0)));
-        depCol.setPrefWidth(120);
-        TableColumn<ObservableList<String>, String> arrCol = new TableColumn<>("Порт прибытия");
-        arrCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().get(1)));
-        arrCol.setPrefWidth(120);
-        TableColumn<ObservableList<String>, String> revCol = new TableColumn<>("Выручка");
-        revCol.setCellValueFactory(data -> new javafx.beans.property.SimpleStringProperty(data.getValue().get(2)));
-        revCol.setPrefWidth(120);
-        table.getColumns().add(depCol);
-        table.getColumns().add(arrCol);
-        table.getColumns().add(revCol);
-        searchBtn.setOnAction(e -> {
-            ObservableList<ObservableList<String>> data = FXCollections.observableArrayList();
-            try (Connection connection = DriverManager.getConnection(DATABASE_URL, USER_NAME, DATABASE_PASS)) {
-                var rs = JDBCManager.getTotalRevenue(connection);
-                while (rs.next()) {
-                    ObservableList<String> row = FXCollections.observableArrayList();
-                    row.add(rs.getString("departure_port_id"));
-                    row.add(rs.getString("arrival_port_id"));
-                    row.add(rs.getString("total_revenue"));
-                    data.add(row);
-                }
-                table.setItems(data);
-            } catch (SQLException ex) {
-                showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить данные: " + ex.getMessage());
-            }
-        });
-        VBox form = new VBox(10, label, searchBtn);
-        form.setAlignment(Pos.CENTER);
-        form.setMaxWidth(350);
-        vbox.getChildren().clear();
-        vbox.getChildren().addAll(title, form, table);
-        vbox.setAlignment(Pos.CENTER);
-        return vbox;
-    }
-
-    private void showAlert(Alert.AlertType alertType, String title, String message) {
-        Alert alert = new Alert(alertType);
-        alert.setTitle(title);
-        alert.setHeaderText(null);
-        alert.setContentText(message);
-        alert.showAndWait();
-    }
-
-    private void showTable(String sql, TableView<ObservableList<String>> table) {
-        table.getColumns().clear();
-        table.getItems().clear();
-        try (Session session = HibernateUtil.getSessionFactory().openSession()) {
-            List<Object[]> results = HibernateManager.executeCustomQuery(session, sql);
-            if (!results.isEmpty()) {
-                Object[] firstRow = results.get(0);
-                for (int i = 0; i < firstRow.length; i++) {
-                    final int colIndex = i;
-                    TableColumn<ObservableList<String>, String> col = new TableColumn<>("Column " + (i + 1));
-                    col.setCellValueFactory(
-                            data -> new javafx.beans.property.SimpleStringProperty(data.getValue().get(colIndex)));
-                    table.getColumns().add(col);
-                }
-            }
-
-            ObservableList<ObservableList<String>> data = FXCollections.observableArrayList();
-            for (Object[] row : results) {
-                ObservableList<String> rowData = FXCollections.observableArrayList();
-                for (Object value : row) {
-                    rowData.add(value != null ? value.toString() : "");
-                }
-                data.add(rowData);
-            }
-            table.setItems(data);
-        } catch (Exception e) {
-            showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить таблицу: " + e.getMessage());
-        }
     }
 
     private VBox createInsuredTicketsFromCountryTab() {
@@ -2015,11 +1472,11 @@ public class MaritimeBookingAppHibernate extends Application {
         vbox.setPadding(new Insets(30));
         vbox.setAlignment(Pos.CENTER);
 
-        Label title = new Label("Произвольный SQL-запрос"); // ИЗМЕНЕНО
+        Label title = new Label("Произвольный SQL-запрос");
         title.setStyle("-fx-font-size: 20px; -fx-font-weight: bold;");
 
         TextArea queryArea = new TextArea();
-        queryArea.setPromptText("Введите SQL-запрос..."); // ИЗМЕНЕНО
+        queryArea.setPromptText("Введите SQL-запрос...");
         queryArea.setPrefRowCount(5);
         queryArea.setWrapText(true);
 
@@ -2032,15 +1489,14 @@ public class MaritimeBookingAppHibernate extends Application {
         table.setPrefHeight(400);
 
         executeBtn.setOnAction(e -> {
-            String sqlQueryString = queryArea.getText().trim(); // Переименовал для ясности
+            String sqlQueryString = queryArea.getText().trim();
             if (sqlQueryString.isEmpty()) {
-                errorLabel.setText("Введите SQL-запрос!"); // ИЗМЕНЕНО
+                errorLabel.setText("Введите SQL-запрос!");
                 return;
             }
 
-            // Эта проверка остается релевантной, если вы хотите разрешать только SELECT
             if (!sqlQueryString.toLowerCase().startsWith("select")) {
-                errorLabel.setText("Разрешены только SELECT SQL запросы!"); // ИЗМЕНЕНО
+                errorLabel.setText("Разрешены только SELECT SQL запросы!");
                 return;
             }
 
@@ -2051,16 +1507,13 @@ public class MaritimeBookingAppHibernate extends Application {
             try (Session session = HibernateUtil.getSessionFactory().openSession()) {
                 List<Object[]> results = HibernateManager.executeCustomQuery(session, sqlQueryString);
 
-                if (results != null && !results.isEmpty()) { // Добавил проверку на null для безопасности
+                if (results != null && !results.isEmpty()) {
                     Object firstRow = results.get(0);
                     int columnCount;
 
                     if (firstRow.getClass().isArray()) {
                         columnCount = ((Object[]) firstRow).length;
                     } else {
-                        // Если NativeQuery вернул список одиночных объектов (например, List<String> или
-                        // List<Integer>)
-                        // а не List<Object[]>, это значит, что запрос выбирал одну колонку.
                         columnCount = 1;
                     }
 
@@ -2086,7 +1539,7 @@ public class MaritimeBookingAppHibernate extends Application {
                             for (Object value : (Object[]) rowObject) {
                                 rowData.add(value != null ? value.toString() : "");
                             }
-                        } else { // Одиночное значение в строке
+                        } else {
                             rowData.add(rowObject != null ? rowObject.toString() : "");
                         }
                         data.add(rowData);
@@ -2099,8 +1552,7 @@ public class MaritimeBookingAppHibernate extends Application {
                             "Запрос выполнен успешно, но не вернул данных или результат не является списком массивов объектов.");
                 }
             } catch (Exception ex) {
-                // Логирование полного стека ошибки будет полезно для отладки
-                ex.printStackTrace(); // Хорошо бы добавить логгер
+                ex.printStackTrace();
                 String userMessage;
                 String msg = ex.getMessage() != null ? ex.getMessage().toLowerCase() : "";
                 if (msg.contains("syntax")) {
@@ -2128,5 +1580,43 @@ public class MaritimeBookingAppHibernate extends Application {
         vbox.getChildren().addAll(title, form, table);
         vbox.setAlignment(Pos.CENTER);
         return vbox;
+    }
+
+    private void showAlert(Alert.AlertType alertType, String title, String message) {
+        Alert alert = new Alert(alertType);
+        alert.setTitle(title);
+        alert.setHeaderText(null);
+        alert.setContentText(message);
+        alert.showAndWait();
+    }
+
+    private void showTable(String sql, TableView<ObservableList<String>> table) {
+        table.getColumns().clear();
+        table.getItems().clear();
+        try (Session session = HibernateUtil.getSessionFactory().openSession()) {
+            List<Object[]> results = HibernateManager.executeCustomQuery(session, sql);
+            if (!results.isEmpty()) {
+                Object[] firstRow = results.get(0);
+                for (int i = 0; i < firstRow.length; i++) {
+                    final int colIndex = i;
+                    TableColumn<ObservableList<String>, String> col = new TableColumn<>("Column " + (i + 1));
+                    col.setCellValueFactory(
+                            data -> new javafx.beans.property.SimpleStringProperty(data.getValue().get(colIndex)));
+                    table.getColumns().add(col);
+                }
+
+                ObservableList<ObservableList<String>> data = FXCollections.observableArrayList();
+                for (Object[] row : results) {
+                    ObservableList<String> rowData = FXCollections.observableArrayList();
+                    for (Object value : row) {
+                        rowData.add(value != null ? value.toString() : "");
+                    }
+                    data.add(rowData);
+                }
+                table.setItems(data);
+            }
+        } catch (Exception e) {
+            showAlert(Alert.AlertType.ERROR, "Ошибка", "Не удалось загрузить таблицу: " + e.getMessage());
+        }
     }
 }

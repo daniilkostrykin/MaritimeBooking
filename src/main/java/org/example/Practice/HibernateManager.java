@@ -8,7 +8,6 @@ public class HibernateManager {
 
     // 2. Покупка билета
     public static List<Object[]> getActiveVoyages(Session session) {
-        // В базе статус хранится как строка 'active'
         String hql = "SELECT v.id, v.vesselId FROM Voyage v WHERE v.status = :status";
         return session.createQuery(hql, Object[].class)
                 .setParameter("status", Voyage.VoyageStatus.active)
@@ -126,7 +125,7 @@ public class HibernateManager {
     }
 
     // 6. Клиенты по питанию
-    public static List<Object[]> getCustomersByMealType(Session session, String mealType) {
+    public static List<Object[]> getCustomersByMealType(Session session, Ticket.MealType mealType) {
         String hql = "SELECT c.email, c.firstName FROM Customer c " +
                 "JOIN c.tickets t WHERE t.mealType = :mealType";
         return session.createQuery(hql, Object[].class)
@@ -135,36 +134,45 @@ public class HibernateManager {
     }
 
     // 7. Рейсы по статусу и питанию
-    public static List<Object[]> getVoyagesWithVessels(Session session) {
-        String hql = "SELECT v.id, v.vesselId, v.name FROM Voyage v";
-        return session.createQuery(hql, Object[].class).getResultList();
+    public static List<Voyage> getVoyagesWithVessels(Session session) {
+        String hql = "FROM Voyage v";
+        return session.createQuery(hql, Voyage.class).getResultList();
     }
 
     public static List<Object[]> getAvailableVoyageStatuses(Session session) {
-        String hql = "SELECT DISTINCT v.status FROM Voyage v";
-        return session.createQuery(hql, Object[].class).getResultList();
+        String sql = "SELECT DISTINCT status FROM maritime_booking.voyages ORDER BY status";
+        return session.createNativeQuery(sql, Object[].class).getResultList();
     }
 
     public static boolean hasVoyagesWithStatus(Session session, String status) {
-        String hql = "SELECT COUNT(v) FROM Voyage v WHERE v.status = :status";
-        Long count = session.createQuery(hql, Long.class)
+        String sql = "SELECT COUNT(*) FROM maritime_booking.voyages WHERE status = :status";
+        Long count = session.createNativeQuery(sql, Long.class)
                 .setParameter("status", status)
                 .getSingleResult();
         return count > 0;
     }
 
     public static List<Object[]> getAvailableMealTypesByStatus(Session session, String status) {
-        String hql = "SELECT DISTINCT t.mealType FROM Ticket t " +
-                "JOIN t.voyage v WHERE v.status = :status";
-        return session.createQuery(hql, Object[].class)
+        String sql = "SELECT DISTINCT tickets.meal_type " +
+                "FROM maritime_booking.tickets " +
+                "JOIN maritime_booking.voyages ON tickets.voyage_id = voyages.id AND tickets.vessel_id = voyages.vessel_id "
+                +
+                "WHERE voyages.status = :status " +
+                "ORDER BY tickets.meal_type";
+        return session.createNativeQuery(sql, Object[].class)
                 .setParameter("status", status)
                 .getResultList();
     }
 
     public static List<Object[]> getVoyagesByStatusAndMeal(Session session, String status, String mealType) {
-        String hql = "SELECT v.id, v.status FROM Voyage v " +
-                "JOIN v.tickets t WHERE v.status = :status AND t.mealType = :mealType";
-        return session.createQuery(hql, Object[].class)
+        String sql = "SELECT DISTINCT voyages.id, voyages.status " +
+                "FROM maritime_booking.voyages " +
+                "JOIN maritime_booking.tickets ON tickets.voyage_id = voyages.id AND tickets.vessel_id = voyages.vessel_id "
+                +
+                "JOIN maritime_booking.customers ON tickets.email = customers.email " +
+                "WHERE voyages.status = :status AND tickets.meal_type = :mealType " +
+                "ORDER BY voyages.id";
+        return session.createNativeQuery(sql, Object[].class)
                 .setParameter("status", status)
                 .setParameter("mealType", mealType)
                 .getResultList();
@@ -173,23 +181,24 @@ public class HibernateManager {
     // 8. Билеты со страховкой по стране
     public static List<String> getCountriesWithInsuredTickets(Session session) {
         String hql = "SELECT DISTINCT stage.departurePort.country " +
-                     "FROM Ticket t " +
-                     "JOIN t.voyage voy " +                 // Связь из Ticket к Voyage
-                     "JOIN voy.stages stage " +             // Связь из Voyage к его VoyageStage (список)
-                     // Hibernate сам разберется с join-условиями для композитных ключей, если маппинги верны
-                     "WHERE t.insurance = true AND stage.stopNumber = 1 " + // stopNumber - поле в сущности VoyageStage
-                     "ORDER BY stage.departurePort.country";
+                "FROM Ticket t " +
+                "JOIN t.voyage voy " + // Связь из Ticket к Voyage
+                "JOIN voy.stages stage " + // Связь из Voyage к его VoyageStage (список)
+                // Hibernate сам разберется с join-условиями для композитных ключей, если
+                // маппинги верны
+                "WHERE t.insurance = true AND stage.stopNumber = 1 " + // stopNumber - поле в сущности VoyageStage
+                "ORDER BY stage.departurePort.country";
         return session.createQuery(hql, String.class).getResultList();
     }
 
     public static List<Object[]> getInsuredTicketsByCountry(Session session, String country) {
         String hql = "SELECT t.id, t.price " + // Убедитесь, что t.price имеет совместимый тип (например, BigDecimal)
-                     "FROM Ticket t " +
-                     "JOIN t.voyage voy " +
-                     "JOIN voy.stages stage " +
-                     "WHERE stage.departurePort.country = :countryToFilter " + // Используем другой плейсхолдер
-                     "AND t.insurance = true " +
-                     "AND stage.stopNumber = 1";
+                "FROM Ticket t " +
+                "JOIN t.voyage voy " +
+                "JOIN voy.stages stage " +
+                "WHERE stage.departurePort.country = :countryToFilter " + // Используем другой плейсхолдер
+                "AND t.insurance = true " +
+                "AND stage.stopNumber = 1";
         return session.createQuery(hql, Object[].class)
                 .setParameter("countryToFilter", country)
                 .getResultList();
@@ -307,25 +316,15 @@ public class HibernateManager {
     }
 
     public static List<Object[]> getVoyageRoute(Session session, int voyageId) {
-        String hql = "SELECT v.id as voyage_id, v.vesselId as vessel_id, v.name as vessel_name, " +
-                "v.status as voyage_status, vs.stopNumber as stop_number, " +
+        String sql = "SELECT v.id as voyage_id, v.vessel_id as vessel_id, v.status as voyage_status, " +
+                "vs.stop_number as stop_number, " +
                 "p.name as port_name, p.country as port_country " +
-                "FROM Voyage v " +
-                "JOIN v.stages vs " +
-                "JOIN vs.port p " +
+                "FROM maritime_booking.voyages v " +
+                "JOIN maritime_booking.voyage_stages vs ON v.id = vs.voyage_id AND v.vessel_id = vs.vessel_id " +
+                "JOIN maritime_booking.ports p ON vs.departure_port_id = p.un_locode " +
                 "WHERE v.id = :voyageId " +
-                "ORDER BY vs.stopNumber";
-        return session.createQuery(hql, Object[].class)
-                .setParameter("voyageId", voyageId)
-                .getResultList();
-    }
-
-    public static List<Object[]> getVoyageCities(Session session, int voyageId) {
-        String hql = "SELECT vs.stopNumber, dp.city as departure_city, ap.city as arrival_city " +
-                "FROM Voyage v JOIN v.voyageStages vs " +
-                "JOIN vs.departurePort dp JOIN vs.arrivalPort ap " +
-                "WHERE v.id = :voyageId ORDER BY vs.stopNumber";
-        return session.createQuery(hql, Object[].class)
+                "ORDER BY vs.stop_number";
+        return session.createNativeQuery(sql, Object[].class)
                 .setParameter("voyageId", voyageId)
                 .getResultList();
     }
