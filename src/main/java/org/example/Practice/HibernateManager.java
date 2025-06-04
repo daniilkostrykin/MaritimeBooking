@@ -243,12 +243,22 @@ public class HibernateManager {
             ticket.setInsurance(insurance);
             ticket.setLuggageWeight(luggageWeight);
             ticket.setPurchaseDate(java.time.LocalDate.parse(purchaseDate));
+           
+            System.out.println("Создание клиента: " + email);
+            System.out.println("Рейс: " + voyageId + ", Судно: " + vesselId);
+            System.out.println("Каюта: " + cabinId);
+            System.out.println("Цена: " + price + ", Оплата: " + paymentMethod);
+            System.out.println("Тип питания: " + mealType + ", Страховка: " + insurance);
+            System.out.println("Вес багажа: " + luggageWeight + ", Дата покупки: " + purchaseDate);
+
+            System.out.println("Ticket перед сохранением: " + ticket);
 
             session.persist(ticket);
             session.getTransaction().commit();
             return ticket.getId().intValue();
         } catch (Exception e) {
             session.getTransaction().rollback();
+            e.printStackTrace();
             throw e;
         }
     }
@@ -259,21 +269,21 @@ public class HibernateManager {
         try {
             // 1. Удалить билеты
             String sqlTickets = "DELETE FROM maritime_booking.tickets WHERE voyage_id = :voyageId AND vessel_id = :vesselId";
-            session.createNativeQuery(sqlTickets)
+            session.createNativeQuery(sqlTickets, Void.class)
                     .setParameter("voyageId", voyageId)
                     .setParameter("vesselId", vesselId)
                     .executeUpdate();
 
             // 2. Удалить этапы маршрута
             String sqlStages = "DELETE FROM maritime_booking.voyage_stages WHERE voyage_id = :voyageId AND vessel_id = :vesselId";
-            session.createNativeQuery(sqlStages)
+            session.createNativeQuery(sqlStages, Void.class)
                     .setParameter("voyageId", voyageId)
                     .setParameter("vesselId", vesselId)
                     .executeUpdate();
 
             // 3. Удалить сам рейс
             String sqlVoyage = "DELETE FROM maritime_booking.voyages WHERE id = :voyageId AND vessel_id = :vesselId";
-            session.createNativeQuery(sqlVoyage)
+            session.createNativeQuery(sqlVoyage, Void.class)
                     .setParameter("voyageId", voyageId)
                     .setParameter("vesselId", vesselId)
                     .executeUpdate();
@@ -303,7 +313,7 @@ public class HibernateManager {
         try {
             String sql = "UPDATE maritime_booking.tickets SET price = price * 1.1 " +
                     "WHERE luggage_weight > :minWeight AND purchase_date <= :date";
-            session.createNativeQuery(sql)
+            session.createNativeQuery(sql, Void.class)
                     .setParameter("minWeight", minWeight)
                     .setParameter("date", java.time.LocalDate.parse(date))
                     .executeUpdate();
