@@ -911,6 +911,33 @@ public class MaritimeBookingAppHibernate extends Application {
         vbox.getChildren().clear();
         vbox.getChildren().addAll(title, scrollPane, table);
         vbox.setAlignment(Pos.CENTER);
+        // ====== ДЕФОЛТНЫЕ ЗНАЧЕНИЯ ДЛЯ ТЕСТА ======
+        emailField.setText("test@test.com");
+        lastNameField.setText("Testov");
+        firstNameField.setText("Test");
+        middleNameField.setText("Testovich");
+        birthDateField.setText("1990-01-01");
+        passportField.setText("1234567890");
+
+        priceField.setText("1000");
+        paymentMethodCombo.setValue("card");
+        mealTypeCombo.setValue("breakfast");
+        insuranceCheck.setSelected(true);
+        luggageField.setText("20");
+        purchaseDateField.setText(java.time.LocalDate.now().toString());
+
+        // Установка значений для рейса, судна и каюты
+        if (!voyageCombo.getItems().isEmpty()) {
+            voyageCombo.setValue(voyageCombo.getItems().get(0));
+            voyageCombo.fireEvent(new javafx.event.ActionEvent()); // обновляет судно и каюту
+        }
+
+        if (!vesselCombo.getItems().isEmpty())
+            vesselCombo.setValue(vesselCombo.getItems().get(0));
+
+        if (!cabinCombo.getItems().isEmpty())
+            cabinCombo.setValue(cabinCombo.getItems().get(0));
+
         return vbox;
     }
     

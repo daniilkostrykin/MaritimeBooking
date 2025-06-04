@@ -1,6 +1,9 @@
 package org.example.Practice;
 
 import org.hibernate.Session;
+
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import org.example.entity.*;
 
@@ -209,6 +212,7 @@ public class HibernateManager {
             String middleName, String birthDate, String passportSeries, int voyageId, String vesselId,
             int cabinId, double price, String paymentMethod, String mealType,
             boolean insurance, int luggageWeight, String purchaseDate) {
+
         session.beginTransaction();
         try {
             Customer customer = new Customer();
@@ -216,46 +220,43 @@ public class HibernateManager {
             customer.setLastName(lastName);
             customer.setFirstName(firstName);
             customer.setMiddleName(middleName);
-            customer.setBirthDate(java.time.LocalDate.parse(birthDate));
+            customer.setBirthDate(LocalDate.parse(birthDate));
             customer.setPassportSeries(passportSeries);
-
             session.persist(customer);
 
             String hql = "FROM Voyage v WHERE v.id = :id AND v.vesselId = :vesselId";
-            Voyage voyage = session.createQuery(hql, Voyage.class)
+            Voyage _ = session.createQuery(hql, Voyage.class)
                     .setParameter("id", (long) voyageId)
                     .setParameter("vesselId", vesselId)
                     .getSingleResult();
 
             hql = "FROM Cabin c WHERE c.id = :id AND c.vesselId = :vesselId";
-            Cabin cabin = session.createQuery(hql, Cabin.class)
+            Cabin _ = session.createQuery(hql, Cabin.class)
                     .setParameter("id", (long) cabinId)
                     .setParameter("vesselId", vesselId)
                     .getSingleResult();
 
+            // Получаем следующий ID из последовательности
+            String sql = "SELECT nextval('maritime_booking.tickets_id_seq')";
+            Long nextId = session.createNativeQuery(sql, Long.class).getSingleResult();
+
             Ticket ticket = new Ticket();
-            ticket.setCustomer(customer);
-            ticket.setVoyage(voyage);
-            ticket.setCabin(cabin);
-            ticket.setPrice(new java.math.BigDecimal(price));
+            ticket.setId(nextId);
+            ticket.setVoyageId((long) voyageId);
+            ticket.setVesselId(vesselId);
+            ticket.setCabinId((long) cabinId);
+            ticket.setEmail(email);
+            ticket.setPrice(new BigDecimal(price));
             ticket.setPaymentMethod(Ticket.PaymentMethod.valueOf(paymentMethod));
             ticket.setMealType(Ticket.MealType.valueOf(mealType));
             ticket.setInsurance(insurance);
             ticket.setLuggageWeight(luggageWeight);
-            ticket.setPurchaseDate(java.time.LocalDate.parse(purchaseDate));
-           
-            System.out.println("Создание клиента: " + email);
-            System.out.println("Рейс: " + voyageId + ", Судно: " + vesselId);
-            System.out.println("Каюта: " + cabinId);
-            System.out.println("Цена: " + price + ", Оплата: " + paymentMethod);
-            System.out.println("Тип питания: " + mealType + ", Страховка: " + insurance);
-            System.out.println("Вес багажа: " + luggageWeight + ", Дата покупки: " + purchaseDate);
-
-            System.out.println("Ticket перед сохранением: " + ticket);
+            ticket.setPurchaseDate(LocalDate.parse(purchaseDate));
 
             session.persist(ticket);
             session.getTransaction().commit();
-            return ticket.getId().intValue();
+
+            return nextId.intValue();
         } catch (Exception e) {
             session.getTransaction().rollback();
             e.printStackTrace();

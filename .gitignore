@@ -40,3 +40,4 @@ build/
 #Other
 code.txt
 towritecode.py
+*.log

@@ -15,7 +15,6 @@ import java.time.LocalDate;
 @IdClass(TicketId.class)
 public class Ticket {
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id")
     private Long id;
 
