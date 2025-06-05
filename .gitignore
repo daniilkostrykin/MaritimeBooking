@@ -38,6 +38,6 @@ build/
 .DS_Store
 
 #Other
-code.txt
-towritecode.py
+*.txt
+*.py
 *.log

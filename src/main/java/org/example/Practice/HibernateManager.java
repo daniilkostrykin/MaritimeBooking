@@ -9,6 +9,15 @@ import org.example.entity.*;
 
 public class HibernateManager {
 
+    // 1. Таблицы
+    public static List<Object[]> executeCustomQuery(Session session, String sql) {
+        if (sql == null || sql.trim().isEmpty()) {
+            throw new IllegalArgumentException("SQL-запрос не может быть пустым.");
+        }
+        org.hibernate.query.NativeQuery<Object[]> query = session.createNativeQuery(sql, Object[].class);
+        return query.getResultList();
+    }
+
     // 2. Покупка билета
     public static List<Object[]> getActiveVoyages(Session session) {
         String hql = "SELECT v.id, v.vesselId FROM Voyage v WHERE v.status = :status";
@@ -17,19 +26,16 @@ public class HibernateManager {
                 .getResultList();
     }
 
-    // Покупка билета - вторая вкладка
     public static List<Object[]> getVessels(Session session) {
         String hql = "SELECT v.imo, v.name FROM Vessel v";
         return session.createQuery(hql, Object[].class).getResultList();
     }
 
-    // Покупка билета - вторая вкладка
     public static List<Object[]> getCabins(Session session) {
         String hql = "SELECT c.id, c.vesselId, c.category, c.capacity, c.windowView FROM Cabin c";
         return session.createQuery(hql, Object[].class).getResultList();
     }
 
-    // Покупка билета - вторая вкладка
     public static boolean checkCustomerExists(Session session, String email) {
         String hql = "SELECT COUNT(c) FROM Customer c WHERE c.email = :email";
         Long count = session.createQuery(hql, Long.class)
@@ -38,7 +44,6 @@ public class HibernateManager {
         return count > 0;
     }
 
-    // Покупка билета - вторая вкладка
     public static void buyTicket(Session session, String email, int voyageId, String vesselId,
             int cabinId, double price, String paymentMethod, String mealType,
             boolean insurance, int luggageWeight, String purchaseDate) {
@@ -185,21 +190,19 @@ public class HibernateManager {
     public static List<String> getCountriesWithInsuredTickets(Session session) {
         String hql = "SELECT DISTINCT stage.departurePort.country " +
                 "FROM Ticket t " +
-                "JOIN t.voyage voy " + // Связь из Ticket к Voyage
-                "JOIN voy.stages stage " + // Связь из Voyage к его VoyageStage (список)
-                // Hibernate сам разберется с join-условиями для композитных ключей, если
-                // маппинги верны
-                "WHERE t.insurance = true AND stage.stopNumber = 1 " + // stopNumber - поле в сущности VoyageStage
+                "JOIN t.voyage voy " +
+                "JOIN voy.stages stage " +
+                "WHERE t.insurance = true AND stage.stopNumber = 1 " +
                 "ORDER BY stage.departurePort.country";
         return session.createQuery(hql, String.class).getResultList();
     }
 
     public static List<Object[]> getInsuredTicketsByCountry(Session session, String country) {
-        String hql = "SELECT t.id, t.price " + // Убедитесь, что t.price имеет совместимый тип (например, BigDecimal)
+        String hql = "SELECT t.id, t.price " +
                 "FROM Ticket t " +
                 "JOIN t.voyage voy " +
                 "JOIN voy.stages stage " +
-                "WHERE stage.departurePort.country = :countryToFilter " + // Используем другой плейсхолдер
+                "WHERE stage.departurePort.country = :countryToFilter " +
                 "AND t.insurance = true " +
                 "AND stage.stopNumber = 1";
         return session.createQuery(hql, Object[].class)
@@ -236,7 +239,6 @@ public class HibernateManager {
                     .setParameter("vesselId", vesselId)
                     .getSingleResult();
 
-            // Получаем следующий ID из последовательности
             String sql = "SELECT nextval('maritime_booking.tickets_id_seq')";
             Long nextId = session.createNativeQuery(sql, Long.class).getSingleResult();
 
@@ -268,21 +270,18 @@ public class HibernateManager {
     public static void deleteVoyage(Session session, int voyageId, String vesselId) {
         session.beginTransaction();
         try {
-            // 1. Удалить билеты
             String sqlTickets = "DELETE FROM maritime_booking.tickets WHERE voyage_id = :voyageId AND vessel_id = :vesselId";
             session.createNativeQuery(sqlTickets, Void.class)
                     .setParameter("voyageId", voyageId)
                     .setParameter("vesselId", vesselId)
                     .executeUpdate();
 
-            // 2. Удалить этапы маршрута
             String sqlStages = "DELETE FROM maritime_booking.voyage_stages WHERE voyage_id = :voyageId AND vessel_id = :vesselId";
             session.createNativeQuery(sqlStages, Void.class)
                     .setParameter("voyageId", voyageId)
                     .setParameter("vesselId", vesselId)
                     .executeUpdate();
 
-            // 3. Удалить сам рейс
             String sqlVoyage = "DELETE FROM maritime_booking.voyages WHERE id = :voyageId AND vessel_id = :vesselId";
             session.createNativeQuery(sqlVoyage, Void.class)
                     .setParameter("voyageId", voyageId)
@@ -335,7 +334,6 @@ public class HibernateManager {
     }
 
     // 12. Маршрут рейса
-
     public static List<Object[]> getVoyagesWithVesselDetails(Session session) {
         String hql = "SELECT v.id, v.vesselId, v.vessel.name, v.status FROM Voyage v";
         return session.createQuery(hql, Object[].class).getResultList();
@@ -359,7 +357,6 @@ public class HibernateManager {
                 .getResultList();
     }
 
-    // 13. Продажи билетов
     public static List<Object[]> getTicketSales(Session session, String year) {
         String hql = "SELECT EXTRACT(MONTH FROM t.purchaseDate) as month, " +
                 "COUNT(t) as ticket_count, " +
@@ -371,36 +368,5 @@ public class HibernateManager {
         return session.createQuery(hql, Object[].class)
                 .setParameter("year", Integer.parseInt(year))
                 .getResultList();
-    }
-
-    // 14. Средний чек по клиентам
-    public static List<Object[]> getAverageCheck(Session session) {
-        String hql = "SELECT c.country, " +
-                "AVG(t.price) as avg_price, " +
-                "COUNT(t) as ticket_count " +
-                "FROM Customer c " +
-                "JOIN c.tickets t " +
-                "GROUP BY c.country " +
-                "ORDER BY avg_price DESC";
-        return session.createQuery(hql, Object[].class).getResultList();
-    }
-
-    // 15. Выручка по маршрутам
-    public static List<Object[]> getTotalRevenue(Session session) {
-        String hql = "SELECT EXTRACT(YEAR FROM t.purchaseDate) as year, " +
-                "SUM(t.price) as total_revenue " +
-                "FROM Ticket t " +
-                "GROUP BY EXTRACT(YEAR FROM t.purchaseDate) " +
-                "ORDER BY year";
-        return session.createQuery(hql, Object[].class).getResultList();
-    }
-
-    // 16. Произвольный HQL-запрос
-    public static List<Object[]> executeCustomQuery(Session session, String sql) { // Имя параметра лучше сменить на sql
-        if (sql == null || sql.trim().isEmpty()) {
-            throw new IllegalArgumentException("SQL-запрос не может быть пустым.");
-        }
-        org.hibernate.query.NativeQuery<Object[]> query = session.createNativeQuery(sql, Object[].class);
-        return query.getResultList();
     }
 }

@@ -576,7 +576,6 @@ public class MaritimeBookingAppHibernate extends Application {
         TextField passportField = new TextField();
         passportField.setPromptText("Серия паспорта (10 цифр)");
     
-        // Установка текущей даты в поле даты рождения
         birthDateField.setText(java.time.LocalDate.now().toString());
     
         Label voyageLabel = new Label("Выберите рейс:");
@@ -592,12 +591,10 @@ public class MaritimeBookingAppHibernate extends Application {
         ComboBox<String> cabinCombo = new ComboBox<>();
         cabinCombo.setPromptText("ID каюты");
     
-        // Замена обычного Label на VBox со списком ошибок
         VBox errorBox = new VBox(5);
         errorBox.setAlignment(Pos.CENTER_LEFT);
         errorBox.setPadding(new Insets(5, 0, 5, 0));
     
-        // Сохраняем полный список кают для повторного использования
         ObservableList<String> allCabins = FXCollections.observableArrayList();
     
         try (Session session = HibernateUtil.getSessionFactory().openSession()) {
@@ -628,13 +625,11 @@ public class MaritimeBookingAppHibernate extends Application {
             if (voyageCombo.getValue() != null) {
                 String vesselId = voyageCombo.getValue().split("IMO: ")[1].replace(")", "");
     
-                // Находим соответствующее судно и устанавливаем его
                 vesselCombo.setValue(vesselCombo.getItems().stream()
                         .filter(item -> item.startsWith(vesselId))
                         .findFirst()
                         .orElse(null));
     
-                // Автоматическая подстановка каюты при выборе рейса
                 if (vesselCombo.getValue() != null) {
                     String cabinVesselId = vesselCombo.getValue().split(" ")[0];
                     ObservableList<String> filteredCabins = FXCollections.observableArrayList(
@@ -644,7 +639,7 @@ public class MaritimeBookingAppHibernate extends Application {
     
                     cabinCombo.setItems(filteredCabins);
                     if (!filteredCabins.isEmpty()) {
-                        cabinCombo.setValue(filteredCabins.get(0)); // Автоматически выбираем первую кабину
+                        cabinCombo.setValue(filteredCabins.get(0));
                     }
                 }
             }
@@ -669,7 +664,6 @@ public class MaritimeBookingAppHibernate extends Application {
     
         TextField purchaseDateField = new TextField();
         purchaseDateField.setPromptText("Дата покупки (ГГГГ-ММ-ДД)");
-        // Установка текущей даты в поле даты покупки
         purchaseDateField.setText(java.time.LocalDate.now().toString());
     
         Button addBtn = new Button("Добавить клиента и билет");
@@ -677,7 +671,6 @@ public class MaritimeBookingAppHibernate extends Application {
         table.setPrefHeight(250);
     
         addBtn.setOnAction(e -> {
-            // Очищаем предыдущие ошибки и стили
             errorBox.getChildren().clear();
             emailField.setStyle("");
             lastNameField.setStyle("");
@@ -694,10 +687,8 @@ public class MaritimeBookingAppHibernate extends Application {
             luggageField.setStyle("");
             purchaseDateField.setStyle("");
     
-            // Список для ошибок
             java.util.List<String> errors = new java.util.ArrayList<>();
     
-            // Валидация email
             if (!Validator.isNotEmpty(emailField.getText())) {
                 errors.add("• Необходимо указать Email");
                 emailField.setStyle("-fx-border-color: red;");
@@ -706,7 +697,6 @@ public class MaritimeBookingAppHibernate extends Application {
                 emailField.setStyle("-fx-border-color: red;");
             }
     
-            // Проверка уникальности email
             if (Validator.isValidEmail(emailField.getText())) {
                 try (Session session = HibernateUtil.getSessionFactory().openSession()) {
                     if (HibernateManager.checkCustomerExists(session, emailField.getText())) {
@@ -718,7 +708,6 @@ public class MaritimeBookingAppHibernate extends Application {
                 }
             }
     
-            // Валидация фамилии
             if (!Validator.isNotEmpty(lastNameField.getText())) {
                 errors.add("• Необходимо указать фамилию");
                 lastNameField.setStyle("-fx-border-color: red;");
@@ -727,7 +716,6 @@ public class MaritimeBookingAppHibernate extends Application {
                 lastNameField.setStyle("-fx-border-color: red;");
             }
     
-            // Валидация имени
             if (!Validator.isNotEmpty(firstNameField.getText())) {
                 errors.add("• Необходимо указать имя");
                 firstNameField.setStyle("-fx-border-color: red;");
@@ -736,7 +724,6 @@ public class MaritimeBookingAppHibernate extends Application {
                 firstNameField.setStyle("-fx-border-color: red;");
             }
     
-            // Валидация отчества
             if (Validator.isNotEmpty(middleNameField.getText()) &&
                     !Validator.isAlphabetic(middleNameField.getText())) {
                 errors.add("• Отчество должно содержать только буквы");
@@ -745,7 +732,6 @@ public class MaritimeBookingAppHibernate extends Application {
                 middleNameField.setStyle("");
             }
     
-            // Валидация даты рождения
             if (!Validator.isValidDate(birthDateField.getText())) {
                 errors.add("• Дата рождения должна быть в формате ГГГГ-ММ-ДД");
                 birthDateField.setStyle("-fx-border-color: red;");
@@ -754,55 +740,46 @@ public class MaritimeBookingAppHibernate extends Application {
                 birthDateField.setStyle("-fx-border-color: red;");
             }
     
-            // Валидация паспорта - ровно 10 цифр
             if (!passportField.getText().matches("^\\d{10}$")) {
                 errors.add("• Серия паспорта должна содержать ровно 10 цифр");
                 passportField.setStyle("-fx-border-color: red;");
             }
     
-            // Валидация рейса
             if (voyageCombo.getValue() == null) {
                 errors.add("• Необходимо выбрать рейс");
                 voyageCombo.setStyle("-fx-border-color: red;");
             }
     
-            // Валидация судна
             if (vesselCombo.getValue() == null) {
                 errors.add("• Необходимо выбрать судно");
                 vesselCombo.setStyle("-fx-border-color: red;");
             }
     
-            // Валидация каюты
             if (cabinCombo.getValue() == null) {
                 errors.add("• Необходимо выбрать каюту");
                 cabinCombo.setStyle("-fx-border-color: red;");
             }
     
-            // Валидация цены
             if (!Validator.isNumeric(priceField.getText())) {
                 errors.add("• Цена должна быть числом");
                 priceField.setStyle("-fx-border-color: red;");
             }
     
-            // Валидация способа оплаты
             if (paymentMethodCombo.getValue() == null) {
                 errors.add("• Необходимо выбрать способ оплаты");
                 paymentMethodCombo.setStyle("-fx-border-color: red;");
             }
     
-            // Валидация типа питания
             if (mealTypeCombo.getValue() == null) {
                 errors.add("• Необходимо выбрать тип питания");
                 mealTypeCombo.setStyle("-fx-border-color: red;");
             }
     
-            // Валидация веса багажа
             if (!Validator.isInteger(luggageField.getText())) {
                 errors.add("• Вес багажа должен быть целым числом");
                 luggageField.setStyle("-fx-border-color: red;");
             }
     
-            // Валидация даты покупки
             if (!Validator.isValidDate(purchaseDateField.getText())) {
                 errors.add("• Дата покупки должна быть в формате ГГГГ-ММ-ДД");
                 purchaseDateField.setStyle("-fx-border-color: red;");
@@ -811,7 +788,6 @@ public class MaritimeBookingAppHibernate extends Application {
                 purchaseDateField.setStyle("-fx-border-color: red;");
             }
     
-            // Если есть ошибки, показываем их и прерываем выполнение
             if (!errors.isEmpty()) {
                 for (String error : errors) {
                     Label errorLabel = new Label(error);
@@ -848,7 +824,6 @@ public class MaritimeBookingAppHibernate extends Application {
                     showAlert(Alert.AlertType.INFORMATION, "Успех", "Клиент и билет успешно добавлены!");
                     showTable("SELECT * FROM maritime_booking.customers", table);
     
-                    // Очищаем поля после успешного добавления
                     emailField.clear();
                     lastNameField.clear();
                     firstNameField.clear();
@@ -862,7 +837,6 @@ public class MaritimeBookingAppHibernate extends Application {
                     luggageField.clear();
                     purchaseDateField.setText(java.time.LocalDate.now().toString());
     
-                    // Сбрасываем выбор рейса, судна и каюты
                     voyageCombo.setValue(null);
                     vesselCombo.setValue(null);
                     cabinCombo.getItems().clear();
@@ -911,32 +885,6 @@ public class MaritimeBookingAppHibernate extends Application {
         vbox.getChildren().clear();
         vbox.getChildren().addAll(title, scrollPane, table);
         vbox.setAlignment(Pos.CENTER);
-        // ====== ДЕФОЛТНЫЕ ЗНАЧЕНИЯ ДЛЯ ТЕСТА ======
-        emailField.setText("test@test.com");
-        lastNameField.setText("Testov");
-        firstNameField.setText("Test");
-        middleNameField.setText("Testovich");
-        birthDateField.setText("1990-01-01");
-        passportField.setText("1234567890");
-
-        priceField.setText("1000");
-        paymentMethodCombo.setValue("card");
-        mealTypeCombo.setValue("breakfast");
-        insuranceCheck.setSelected(true);
-        luggageField.setText("20");
-        purchaseDateField.setText(java.time.LocalDate.now().toString());
-
-        // Установка значений для рейса, судна и каюты
-        if (!voyageCombo.getItems().isEmpty()) {
-            voyageCombo.setValue(voyageCombo.getItems().get(0));
-            voyageCombo.fireEvent(new javafx.event.ActionEvent()); // обновляет судно и каюту
-        }
-
-        if (!vesselCombo.getItems().isEmpty())
-            vesselCombo.setValue(vesselCombo.getItems().get(0));
-
-        if (!cabinCombo.getItems().isEmpty())
-            cabinCombo.setValue(cabinCombo.getItems().get(0));
 
         return vbox;
     }
@@ -954,7 +902,7 @@ public class MaritimeBookingAppHibernate extends Application {
         voyageCombo.setPromptText("ID рейса");
 
         Label imoLabel = new Label("IMO судна:");
-        Label imoValue = new Label(); // Заменяем ComboBox на Label
+        Label imoValue = new Label();
         imoValue.setStyle("-fx-font-size: 14px;");
 
         VBox errorBox = new VBox(5);
@@ -973,7 +921,6 @@ public class MaritimeBookingAppHibernate extends Application {
         TableView<ObservableList<String>> stagesTable = new TableView<>();
         stagesTable.setPrefHeight(150);
 
-        // Заполняем ComboBox рейсов
         try (Session session = HibernateUtil.getSessionFactory().openSession()) {
             List<Voyage> voyages = HibernateManager.getVoyagesWithVessels(session);
             for (Voyage voyage : voyages) {
@@ -986,12 +933,10 @@ public class MaritimeBookingAppHibernate extends Application {
             errorBox.getChildren().add(errorLabel);
         }
 
-        // Показываем IMO и связанные данные при выборе рейса
         voyageCombo.setOnAction(e -> {
             errorBox.getChildren().clear();
             String voyageStr = voyageCombo.getValue();
             if (voyageStr != null) {
-                // Извлекаем IMO из выбранного рейса
                 String imo = voyageStr.substring(voyageStr.indexOf("IMO: ") + 5, voyageStr.indexOf(")"));
                 imoValue.setText(imo);
 
@@ -1355,8 +1300,6 @@ public class MaritimeBookingAppHibernate extends Application {
 
             ObservableList<ObservableList<String>> routeCitiesData = FXCollections.observableArrayList();
             try (Session session = HibernateUtil.getSessionFactory().openSession()) {
-                // Здесь можно добавить HQL-запрос, но для соответствия текущему функционалу
-                // оставим нативный SQL
                 String sql = "SELECT vs.stop_number, dp.city AS departure_city, ap.city AS arrival_city " +
                         "FROM maritime_booking.voyage_stages vs " +
                         "JOIN maritime_booking.ports dp ON vs.departure_port_id = dp.un_locode " +
